@@ -16,12 +16,32 @@ class Trainings extends BaseController
         $this->mdl_pending_trainings = new mdl_pending_trainings();
     }
 
+    public function public_landing()
+    {
+        try {
+            $data['trainings'] = $this->mdl_lib_trainings->getPublicTrainings();
+            
+            $this->mdl_categories = new \App\Models\trainings\mdl_lib_training_categories();
+            $data['categories'] = $this->mdl_categories->getAllCategories();
+            
+            $data['total_trainings'] = count($data['trainings']);
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Error loading public trainings: ' . $e->getMessage());
+            $data['trainings'] = [];
+            $data['categories'] = [];
+            $data['total_trainings'] = 0;
+        }
+        
+        return view('trainings/public_landing', $data);
+    }
+
     public function index()
     {
         $employee_id = session()->get('empid');
         
         try {
-            $db = \Config\Database::connect('training');
+            $db = \Config\Database::connect('default');
             $table_exists = $db->query("SHOW TABLES LIKE 'employees_trainings'");
             
             if ($table_exists && $table_exists->getNumRows() > 0) {
@@ -60,7 +80,7 @@ class Trainings extends BaseController
             
             $offset = ($page - 1) * $limit;
 
-            $db = \Config\Database::connect('training');
+            $db = \Config\Database::connect('default');
             
             if (!$db) {
                 $data = [
@@ -175,7 +195,7 @@ class Trainings extends BaseController
         try {
             log_message('debug', 'Loading training details for ID: ' . $id);
             
-            $db = \Config\Database::connect('training');
+            $db = \Config\Database::connect('default');
             
             if (!$db) {
                 log_message('error', 'Unable to connect to training database');
@@ -303,7 +323,7 @@ class Trainings extends BaseController
 
                 $offset = ($page - 1) * $limit;
 
-                $db = \Config\Database::connect('training');
+                $db = \Config\Database::connect('default');
                 log_message('debug', 'Database connection status: ' . ($db ? 'SUCCESS' : 'FAILED'));
                 
                 if (!$db) {
@@ -447,7 +467,7 @@ class Trainings extends BaseController
                 'sample_records' => []
             ];
             
-            $db = \Config\Database::connect('training');
+            $db = \Config\Database::connect('default');
             if ($db) {
                 $result['database_connection'] = true;
                 
@@ -512,13 +532,13 @@ class Trainings extends BaseController
                 return $this->response->setJSON(['status' => 'error', 'message' => 'Hours must be greater than 0']);
             }
             
-            $training_db = \Config\Database::connect('training');
+            $default_db = \Config\Database::connect('default');
             
-            if (!$training_db) {
+            if (!$default_db) {
                 return $this->response->setJSON(['status' => 'error', 'message' => 'Database connection failed']);
             }
             
-            $category_check = $training_db->table('lib_training_category')
+            $category_check = $default_db->table('lib_training_category')
                            ->where('id_training_category', $training_category_id)
                            ->where('is_deleted', 0)
                            ->where('is_visible', 1)
@@ -585,12 +605,12 @@ class Trainings extends BaseController
                 'updated_date' => date('Y-m-d H:i:s')
             ];
             
-            $result = $training_db->table('pending_trainings')->insert($data);
+            $result = $default_db->table('pending_trainings')->insert($data);
             
             if ($result) {
                 return $this->response->setJSON(['status' => 'success', 'message' => 'Training submitted successfully']);
             } else {
-                $error = $training_db->error();
+                $error = $default_db->error();
                 log_message('error', 'Failed to save training: ' . print_r($error, true));
                 return $this->response->setJSON(['status' => 'error', 'message' => 'Failed to save training: ' . $error['message']]);
             }
@@ -606,7 +626,7 @@ class Trainings extends BaseController
         try {
             log_message('debug', 'Getting pending training details for ID: ' . $id);
             
-            $db = \Config\Database::connect('training');
+            $db = \Config\Database::connect('default');
             
             if (!$db) {
                 return $this->response->setJSON(['status' => 'error', 'message' => 'Database connection failed']);
@@ -659,13 +679,13 @@ class Trainings extends BaseController
                 return $this->response->setJSON(['status' => 'error', 'message' => 'Hours must be greater than 0']);
             }
             
-            $training_db = \Config\Database::connect('training');
+            $default_db = \Config\Database::connect('default');
             
-            if (!$training_db) {
+            if (!$default_db) {
                 return $this->response->setJSON(['status' => 'error', 'message' => 'Database connection failed']);
             }
             
-            $existing_training = $training_db->table('pending_trainings')
+            $existing_training = $default_db->table('pending_trainings')
                                    ->where('id_pending_training', $training_id)
                                    ->where('emp_idno', $emp_idno)
                                    ->get()
@@ -725,14 +745,14 @@ class Trainings extends BaseController
                 'updated_date' => date('Y-m-d H:i:s')
             ];
             
-            $result = $training_db->table('pending_trainings')
+            $result = $default_db->table('pending_trainings')
                         ->where('id_pending_training', $training_id)
                         ->update($data);
             
             if ($result) {
                 return $this->response->setJSON(['status' => 'success', 'message' => 'Training updated successfully']);
             } else {
-                $error = $training_db->error();
+                $error = $default_db->error();
                 log_message('error', 'Failed to update training: ' . print_r($error, true));
                 return $this->response->setJSON(['status' => 'error', 'message' => 'Failed to update training: ' . $error['message']]);
             }
@@ -748,7 +768,7 @@ class Trainings extends BaseController
         try {
             log_message('debug', 'Deleting pending training ID: ' . $id);
             
-            $db = \Config\Database::connect('training');
+            $db = \Config\Database::connect('default');
             
             if (!$db) {
                 log_message('error', 'Cannot connect to training database');
@@ -794,7 +814,7 @@ class Trainings extends BaseController
         try {
             log_message('debug', 'Getting pending training ID: ' . $id);
             
-            $db = \Config\Database::connect('training');
+            $db = \Config\Database::connect('default');
             
             if (!$db) {
                 log_message('error', 'Cannot connect to training database');

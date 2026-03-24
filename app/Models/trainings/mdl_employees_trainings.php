@@ -8,7 +8,7 @@ class mdl_employees_trainings extends Model
 {
     protected $table = 'employees_trainings';
     protected $primaryKey = 'id_employee_training';
-    protected $DBGroup = 'training'; 
+    protected $DBGroup = 'default'; 
     protected $allowedFields = [
         'employee_training_refno',
         'employee_id',

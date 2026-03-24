@@ -8,9 +8,11 @@ use CodeIgniter\Router\RouteCollection;
 
 $routes->setAutoRoute(false);
 
+// Public routes (no authentication required)
+$routes->get('/', 'Trainings\Trainings::public_landing');
+$routes->get('/trainings', 'Trainings\Trainings::public_landing');
+
 // Login/Authentication routes
-$routes->get('/', 'LoginController::index');
-$routes->post('/', 'LoginController::index');
 $routes->get('/login', 'LoginController::index');
 $routes->post('/login', 'LoginController::index');
 $routes->get('/logout', 'LoginController::logout');

@@ -8,7 +8,7 @@ class mdl_lib_trainings extends Model
 {
     protected $table = 'lib_trainings';
     protected $primaryKey = 'id_training';
-    protected $DBGroup = 'training'; 
+    protected $DBGroup = 'default'; 
     protected $allowedFields = [
         'training_name',
         'objective',
@@ -47,5 +47,46 @@ class mdl_lib_trainings extends Model
     public function getAllTrainings()
     {
         return $this->orderBy('training_name', 'ASC')->findAll();
+    }
+
+    public function getPublicTrainings()
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            if ($db) {
+                $sql = "SELECT 
+                            lt.id_training,
+                            lt.training_name,
+                            lt.training_category_id,
+                            ltc.training_category_name,
+                            lt.training_datefrom,
+                            lt.training_dateto,
+                            lt.training_deadline as joining_deadline,
+                            lt.training_facilitator as facilitator,
+                            lt.training_venue as venue,
+                            lt.training_hours,
+                            lt.objective,
+                            lt.expertise,
+                            lt.training_is_local,
+                            lt.status_id,
+                            ls.status as status_name,
+                            lt.training_added_date,
+                            COUNT(ta.user_id) as attendee_count
+                        FROM lib_trainings lt
+                        LEFT JOIN lib_training_category ltc ON lt.training_category_id = ltc.id_training_category
+                        LEFT JOIN training_status ls ON lt.status_id = ls.id
+                        LEFT JOIN training_attendees ta ON lt.id_training = ta.training_id
+                        GROUP BY lt.id_training
+                        ORDER BY lt.training_datefrom DESC";
+                
+                $query = $db->query($sql);
+                return $query->getResultArray();
+            }
+        } catch (\Exception $e) {
+            log_message('error', 'Error fetching public trainings: ' . $e->getMessage());
+        }
+        
+        return [];
     }
 }

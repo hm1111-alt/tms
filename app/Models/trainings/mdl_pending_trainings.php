@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class mdl_pending_trainings extends Model
 {
-    protected $DBGroup = 'training';
+    protected $DBGroup = 'default';
     protected $table = 'pending_trainings';
     protected $primaryKey = 'id_pending_training';
     protected $allowedFields = [

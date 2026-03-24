@@ -9,7 +9,7 @@ class mdl_lib_training_categories extends Model
     public function getAllCategories()
     {
         try {
-            $db = \Config\Database::connect('training');
+            $db = \Config\Database::connect();
             
             if ($db) {
                 $sql = "SELECT id_training_category AS id, training_category_name AS category_name 
@@ -25,9 +25,10 @@ class mdl_lib_training_categories extends Model
                 }
             }
         } catch (\Exception $e) {
-            log_message('error', 'Database fetch failed: ' . $e->getMessage());
+            log_message('error', 'Error fetching categories: ' . $e->getMessage());
         }
 
+        // Fallback default categories
         return [
             ['id' => 1, 'category_name' => 'Management'],
             ['id' => 2, 'category_name' => 'Technical'], 

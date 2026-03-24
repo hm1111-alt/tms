@@ -21,7 +21,7 @@ class Session extends BaseConfig
      *
      * @phpstan-var class-string<BaseHandler>
      */
-    //public string $driver = FileHandler::class;
+    public string $driver = FileHandler::class;
 
     /**
      * --------------------------------------------------------------------------
@@ -57,7 +57,7 @@ class Session extends BaseConfig
      *
      * IMPORTANT: You are REQUIRED to set a valid save path!
      */
-    //public string $savePath = WRITEPATH . 'session';
+    public string $savePath = WRITEPATH . 'ci_sessions';
 
     /**
      * --------------------------------------------------------------------------
@@ -100,28 +100,9 @@ class Session extends BaseConfig
      */
     public ?string $DBGroup = null;
     
-    public $driver = 'CodeIgniter\Session\Handlers\DatabaseHandler';
-    public $savePath = 'ci_sessions'; // Table name
-    
-    
     public function __construct()
     {
         parent::__construct();
         helper('cookie');
     }
-    
-    public function write($sessionID, $sessionData): bool
-    {
-        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-        $macAddress = getMacAddress(); // Call the function to get MAC
-
-        
-        $db = \Config\Database::connect();
-        $db->table('ci_sessions')
-            ->where('id', session_id())
-            ->update($data);
-
-    }
-    
-    
 }
