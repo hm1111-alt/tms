@@ -1,0 +1,44 @@
+*/config/development
+*/logs/log-*.php
+!*/logs/index.html
+*/cache/*
+!system/cache/*
+!*/cache/index.html
+!*/cache/.htaccess
+
+user_guide_src/build/*
+user_guide_src/cilexer/build/*
+user_guide_src/cilexer/dist/*
+user_guide_src/cilexer/pycilexer.egg-info/*
+
+#codeigniter 3
+application/logs/*
+!application/logs/index.html
+!application/logs/.htaccess
+/vendor/
+
+
+# Ignore local config overrides (optional)
+app/Config/App.php
+app/Config/Database.php
+
+
+# Ignore environment files
+.env
+
+
+# Ignore IDE/editor files
+nbproject/*
+
+
+# Ignore log and cache files
+*.log
+writable/logs/
+writable/cache/
+writable/debugbar/
+writable/session/
+writable/uploads/
+
+public/assets/uploads/*
+public/assets/files/*
+public/assets/images/profiles/*

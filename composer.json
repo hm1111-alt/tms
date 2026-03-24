@@ -1,0 +1,13 @@
+{
+    "name": "vendor/hrmisv2",
+    "description": "Description of project hrmisv2.",
+    "authors": [
+        {
+            "name": "BENJ",
+            "email": "your@email.here"
+        }
+    ],
+    "require": {
+        "dompdf/dompdf": "dev-master"
+    }
+}
