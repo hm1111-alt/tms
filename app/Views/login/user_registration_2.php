@@ -7,7 +7,7 @@
         <meta name="description" content="" />
         <meta name="author" content="" />
         <link rel="shortcut icon" href="<?php echo base_url('public/favicon.ico'); ?>">
-        <title>Account Registration | Employee Portal</title>
+        <title>Account Registration | Training Management System</title>
         
         <link href="<?= base_url('public/assets/css/styles.css') ?>" rel="stylesheet" />
         <script src="<?= base_url('public/assets/fontawesome/all.js') ?>" crossorigin="anonymous"></script>
@@ -21,7 +21,7 @@
                             <div class="col-lg-8">
                                 <div class="align-items-center mt-5" style="height: 100px; text-align: center;">
                                         <img class="" src="<?= base_url('public/assets/images/clsu_logo250.png') ?>" style="max-width: 150px; max-height: 80px; display: inline-block;"  alt="Company Logo">
-                                        <h2 class="font-weight-light px-2 text-success-clsu" style="display: inline-block; text-align: center;">Employee Portal v2</h2>
+                                        <h2 class="font-weight-light px-2 text-success-clsu" style="display: inline-block; text-align: center;">Training Management System</h2>
                                 </div>
                                 <div class="card shadow-lg border-0 rounded-lg mt-2 mb-5">
                                     

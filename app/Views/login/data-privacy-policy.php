@@ -6,8 +6,8 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0" name="viewport">
 
-	<title>e-Portal v1.0</title>
-	<meta content="Employee Portal v1.0" name="description">
+	<title>Training Management System - Data Privacy Policy</title>
+	<meta content="Training Management System v1.0" name="description">
 	<meta content="Tristan Peneyra" name="keywords">
 
         <link rel="shortcut icon" href="<?php echo base_url('public/favicon.ico'); ?>">
@@ -31,7 +31,7 @@
 						<div class="justify-content-center py-2" style="text-align: center;">
 							<a href="<?= site_url() ?>" class="logo d-flex align-items-center w-auto" style="text-decoration: none;">
 								<img src="<?= base_url('public/assets/images/seal-monogram-green.png') ?>" height="150" alt="" style="border-right: 1px solid green;">
-								<h2 class="d-lg-block mb-0 text-success" style="padding-left: 20px;">Employee Portal v1.0</h2>
+								<h2 class="d-lg-block mb-0 text-success" style="padding-left: 20px;">Training Management System</h2>
 							</a>
 						</div>
 
@@ -42,11 +42,11 @@
 							<div class="card-body px-3 py-4">
 								<div class="mb-4">
 									<h5 class="fw-semibold">Data Privacy Policy </h5>
-									<p align="justify">The Central Luzon State University's Human Resource Management Office (CLSU-HRMO) is committed to protecting the privacy and security of personal data of employees collected through the Employee Portal system and be stored as reference data in our Human Resources Management Information System. This policy outlines how we collect, use, and protect personal data in our system.</p>
+									<p align="justify">The Central Luzon State University's Training Management System is committed to protecting the privacy and security of personal data collected through the system for training management purposes. This policy outlines how we collect, use, and protect personal data in our system.</p>
 								</div>
 								<div class="mb-4">
 									<h5 class="fw-semibold">Collection of Personal Data</h5>
-									<p align="justify">We collect personal data from employees for the purpose of human resource management, including but not limited to recruitment, employment, training, development, performance management, and separation. We collect personal data through our Employee Portal, including the following categories of personal data such as:</p>
+									<p align="justify">We collect personal data from employees for the purpose of training management, including but not limited to training registration, tracking, certification, and professional development. We collect personal data through our Training Management System, including the following categories of personal data such as:</p>
 									<ul>
 										<li>Identification information, such as name, address, contact information, and identification documents.</li>
 										<li>Employment information, such as job title, employment history, education, and training.</li>

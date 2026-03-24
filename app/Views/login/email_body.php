@@ -25,7 +25,7 @@
                                         vertical-align: text-bottom;
                                         font-weight: 500;
                                         line-height: 1.2;">
-                                    Employee Portal v2
+                                    Training Management System
                                     <br>
                                     <span style="font-size: 1.2rem;"><?= @$email_title ?></span>
                                 </h2>

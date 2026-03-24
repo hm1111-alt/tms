@@ -7,7 +7,7 @@
         <meta name="description" content="" />
         <meta name="author" content="" />
         <link rel="shortcut icon" href="<?php echo base_url('public/favicon.ico'); ?>">
-        <title>Login | Employee Portal</title>
+        <title>Login | Training Management System</title>
         
         <link href="<?= base_url('public/assets/css/styles.css') ?>" rel="stylesheet" />
         <script src="<?= base_url('public/assets/fontawesome/all.js') ?>" crossorigin="anonymous"></script>
@@ -27,7 +27,7 @@
                                     
                                     <div class="card-header text-center bg-success text-white" style="">
                                         <!--<h4 class="text-center font-weight-light mb-4 mt-2" style=" color: #078b09;">Online Leave Application</h4>-->
-                                        <h4 class="text-center font-weight-light mb-3 mt-2" style="">Employee Portal v2.0</h4>
+                                        <h4 class="text-center font-weight-light mb-3 mt-2" style="">Training Management System</h4>
                                         <!--<small class="">Enter your username & password to login</small>-->
                                     </div>
                                   
@@ -113,7 +113,7 @@
                 <footer class="py-4 bg-light mt-auto text-center">
                     <div class="container-fluid px-4">
                         <div class="d-flex align-items-center justify-content-between small">
-                            <div class="text-muted w-100"><b>Employee Portal v2.0</b>
+                            <div class="text-muted w-100"><b>Training Management System</b>
                                 <br>&copy; Copyright 2025. All rights reserved.
                                 <br><span class="text-success">Management Information System Office (MISO)</span>.
                                 <br><?php echo strtoupper('Central Luzon State University'); ?>

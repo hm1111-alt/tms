@@ -40,9 +40,26 @@ class Dashboard extends BaseController
                             $data['units'] = $this->mdl_menu->get_units_menu(@$basic[0]->emp_division);
                         }
                         
-                        
-                        
-                        $data['memos'] = '';//$this->mdl_dashboard->get_memos();
+                        // Training Statistics for Dashboard
+                        $db = \Config\Database::connect('training');
+                        try {
+                                $data['total_trainings'] = $db->table('employees_trainings')->selectCount('*')->where('employee_id', $employee_id)->get()->getRow()->count;
+                                $data['pending_trainings'] = $db->table('pending_trainings')->selectCount('*')->where('emp_idno', session()->get('emp_idno'))->get()->getRow()->count;
+                                
+                                // Get recent trainings
+                                $data['recent_trainings'] = $db->table('employees_trainings')
+                                        ->select('*, lib_trainings.training_name as title_seminar')
+                                        ->join('lib_trainings', 'lib_trainings.id_training = employees_trainings.training_id', 'left')
+                                        ->where('employee_id', $employee_id)
+                                        ->orderBy('addeddate', 'DESC')
+                                        ->limit(5)
+                                        ->get()
+                                        ->getResult();
+                        } catch (\Exception $e) {
+                                $data['total_trainings'] = 0;
+                                $data['pending_trainings'] = 0;
+                                $data['recent_trainings'] = [];
+                        }
                         
                         $data['page'] = $this->mdl_setting->get_page_details($this->class_name);
                         $data['module_name'] = $data['page']->page_name;
@@ -52,13 +69,6 @@ class Dashboard extends BaseController
                         
                         $data['empidno'] = '';//$this->mdl_dashboard->encode(session()->get('emp_idno'));
                         //$data['empidno'] = $this->mdl_dashboard->encode('20160822-01'); // for testing
-                        
-//                        $data['warning'] = 'Note: This is your first login. Update your details to continue using the system.';
-                        
-                        //if(!session()->get('earned_monet')){
-                            $earned_monet = '123,456.00';//$this->compute_earned_monet();
-                            session()->set('earned_monet', $earned_monet);
-                        //}
                         
                         return view('layout/dashboard',$data);
 
@@ -82,24 +92,6 @@ class Dashboard extends BaseController
                         
         }
         
-        /*
-        function compute_earned_monet()
-        {
-                $this->mdl_profile = new \App\Models\mdl_profile();
-                $employee = $this->mdl_profile->get_employee_salary();
-                
-                $this->mdl_leave = new \App\Models\attendance\mdl_leave();
-                $credits = $this->mdl_leave->get_employee_credits(session()->get('empid'));
-                
-                $total_credits = floatval(@$credits[0]->vl) + floatval(@$credits[0]->sl);
-                $factor = floatval($this->mdl_setting->get_settings('leave_monet_factor'));
-                $salary = floatval(@$employee[0]->salary);
-                
-                $monet_amount = $salary * $total_credits * $factor;
-                
-                return number_format($monet_amount, 2, '.', ',');
-        }*/
-        
         function load_memo()
         {
                 $details = $this->mdl_dashboard->get_memo_details($_POST['memo_id']);
@@ -111,13 +103,9 @@ class Dashboard extends BaseController
         
         function load_my_credits()
         {
-                $this->mdl_leave = new \App\Models\attendance\mdl_leave();
-                //$credits = $this->mdl_leave->get_employee_credits(session()->get('empid'));
-                $credits0 = $this->mdl_leave->get_last_forward(session()->get('empid'));
-                $credits = @$credits0[0]->vl>0 ? $credits0 : $this->mdl_leave->get_employee_credits(session()->get('empid'));
-                $credits[0]->asof_date = @$credits[0]->balance_forward_date!='' ? date('F j, Y',strtotime(@$credits[0]->balance_forward_date)) : date('F j, Y',strtotime(@$credits[0]->last_updated));
-                
-                echo json_encode($credits);
+                // This function is deprecated - was used for leave credits
+                // Now used for training statistics if needed
+                echo json_encode([]);
         }
         
 //----divider----------------------------------------------------------
