@@ -10,7 +10,7 @@ $routes->setAutoRoute(false);
 
 // Public routes (no authentication required)
 $routes->get('/', 'Trainings\Trainings::public_landing');
-$routes->get('/trainings', 'Trainings\Trainings::public_landing');
+// Remove duplicate /trainings public route - let it use the authenticated one
 
 // Login/Authentication routes
 $routes->get('/login', 'LoginController::index');
@@ -60,6 +60,13 @@ $routes->group('', ['filter' => 'AuthAdmin'], function($routes){
     
     // Training Management System Routes
     $routes->get('trainings', 'Trainings\Trainings::index');
+    $routes->get('mytrainings', 'Trainings\Trainings::my_trainings'); // Employee/Guest personal trainings
+    $routes->get('trainings/my_trainings', 'Trainings\Trainings::my_trainings'); // Alternative route with prefix
+    $routes->get('trainings/pending', 'Trainings\Trainings::pending'); // View pending trainings
+    $routes->get('trainings/add', 'Trainings\Trainings::add');
+    $routes->post('trainings/add', 'Trainings\Trainings::add');
+    $routes->get('trainings/edit/(:num)', 'Trainings\Trainings::edit/$1');
+    $routes->post('trainings/update', 'Trainings\Trainings::update');
     $routes->post('trainings/load_approved_trainings', 'Trainings\Trainings::load_approved_trainings');
     $routes->post('trainings/load_pending_trainings', 'Trainings\Trainings::load_pending_trainings');
     $routes->post('trainings/save_pending', 'Trainings\Trainings::save_pending');
@@ -67,7 +74,13 @@ $routes->group('', ['filter' => 'AuthAdmin'], function($routes){
     $routes->post('trainings/get_pending_details/(:num)', 'Trainings\Trainings::get_pending_details/$1');
     $routes->post('trainings/update_pending', 'Trainings\Trainings::update_pending');
     $routes->get('trainings/debug_pending', 'Trainings\Trainings::debug_pending_trainings');
-    $routes->get('trainings/view/(:num)', 'Trainings\Trainings::view/$1');
+    $routes->post('trainings/delete/(:num)', 'Trainings\Trainings::delete/$1');
     $routes->get('trainings/tabs', 'Trainings\Trainings::index');
     $routes->get('uploads/trainings/certificates/(:any)', 'Trainings\Trainings::serve_certificate/$1');
 });
+
+// Public training view route (no authentication required)
+$routes->get('trainings/view/(:num)', 'Trainings\Trainings::view/$1');
+
+// Enrollment route (requires authentication - will redirect to login if not logged in)
+$routes->get('trainings/enroll/(:num)', 'Trainings\Trainings::enroll/$1');

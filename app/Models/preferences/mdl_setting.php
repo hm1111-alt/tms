@@ -9,14 +9,14 @@ class Mdl_Setting extends Model
         
         function get_page_details($class_name)
         {
-                $query = $this->db->query("SELECT main.* , 
-                                                    parent.class_name parent_class_name , parent.page_name parent_page_name  , parent.page_name2 parent_page_name2 
-                                                FROM pages main
-                                                LEFT JOIN pages parent ON parent.id_page=main.page_parent
-                                                WHERE main.class_name='".strtolower($class_name)."' 
-                                                 ");
-                return $query->getRow();
-                
+                // Return default without querying if we don't want to use pages table
+                $default = new \stdClass();
+                $default->page_name = ucfirst(strtolower($class_name));
+                $default->page_name2 = '';
+                $default->parent_class_name = '';
+                $default->parent_page_name = '';
+                $default->parent_page_name2 = '';
+                return $default;
         }
         
         function get_page_children($class_name)

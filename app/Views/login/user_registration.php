@@ -26,12 +26,10 @@
                                 <div class="card shadow-lg border-0 rounded-lg mt-2 mb-5">
                                     
                                     <div class="card-header bg-success text-white">
-                                        <h4 class="font-weight-light mb-2 mt-2">Account Registration</h4>
-                                        <!--<small class="">Enter your username & password to login</small>-->
+                                        <h4 class="mb-0"><i class="fas fa-user-plus me-2"></i>Account Registration</h4>
                                     </div>
                                   
                                     <div class="card-body mb-3">
-                                          
                                         <?php if (session()->getFlashdata('error') || @$error){ ?>
                                             <div class="card mb-4 bg-danger text-white">
                                                 <div class="card-body">
@@ -47,102 +45,184 @@
                                         
                                         <?php $request = \Config\Services::request(); ?>
                                         
-                                        <form method="post" role="form" name="registration_form" action="<?php echo $request->getUri()->getPath();  ?>">
+                                        <!-- Toggle Button -->
+                                        <div class="mb-4">
+                                            <button type="button" id="toggleRegistrationBtn" class="btn btn-outline-primary" onclick="toggleRegistration()">
+                                                <i class="fas fa-user-circle me-2"></i><span id="toggleBtnText">Register as Guest</span>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Employee Registration Form -->
+                                        <form method="post" role="form" name="employee_registration_form" action="<?php echo $request->getUri()->getPath(); ?>" id="employeeForm">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle me-2"></i>
+                                                <strong>Employee Registration:</strong> Use your official Employee ID from CLSU database.
+                                            </div>
                                             
-                                                <div class="form-floating mb-3">
-                                                    <?php if (@$validation && $validation->hasError('employee_idno')){ ?>
-                                                        <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_idno'); ?></label></span>
-                                                    <?php } ?>
-                                                    <input type="text" name="employee_idno" class="form-control" id="inputIdno" placeholder="ID no." value="<?= set_value('employee_idno') ?>" />
-                                                    <label for="inputIdno" style="<?php echo (@$validation && $validation->hasError('employee_idno')) ? 'margin-top: 30px;' : ''; ?>">
-                                                        Employee ID no.
-                                                    </label>
-                                                </div>
-                                                <div class="form-floating mb-3">
-                                                    <?php if (@$validation && $validation->hasError('employee_fname')){ ?>
-                                                        <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_fname'); ?></label></span>
-                                                    <?php } ?>
-                                                    <input type="text" name="employee_fname" class="form-control" id="inputfname" placeholder="First Name" value="<?= set_value('employee_fname') ?>"  />
-                                                    <label for="inputfname" style="<?php echo (@$validation && $validation->hasError('employee_fname')) ? 'margin-top: 30px;' : ''; ?>">
-                                                        First Name
-                                                    </label>
-                                                </div>
-                                                <div class="form-floating mb-3">
-                                                    <?php if (@$validation && $validation->hasError('employee_lname')){ ?>
-                                                        <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_lname'); ?></label></span>
-                                                    <?php } ?>
-                                                    <input type="text" name="employee_lname" class="form-control" id="inputlname" placeholder="Last Name" value="<?= set_value('employee_lname') ?>"  />
-                                                    <label for="inputlname" style="<?php echo (@$validation && $validation->hasError('employee_lname')) ? 'margin-top: 30px;' : ''; ?>">
-                                                        Last Name
-                                                    </label>
-                                                </div>
-                                                <div class="form-floating mb-3">
-                                                    <?php if (@$validation && $validation->hasError('email_address')){ ?>
-                                                        <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('email_address'); ?></label></span>
-                                                    <?php } ?>
-                                                    <input type="email" name="email_address" class="form-control" id="inputEmail" placeholder="email@clsu.edu.ph" value="<?= set_value('email_address') ?>"  />
-                                                    <label for="inputEmail" style="<?php echo (@$validation && $validation->hasError('email_address')) ? 'margin-top: 30px;' : ''; ?>">
-                                                        E-mail Address (Official)
-                                                    </label>
-                                                </div>
-                                            <br>
+                                            <div class="form-floating mb-3">
+                                                <?php if (@$validation && $validation->hasError('employee_idno')){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_idno'); ?></label></span>
+                                                <?php } ?>
+                                                <input type="text" name="employee_idno" class="form-control" id="inputIdno" placeholder="ID no." value="<?= set_value('employee_idno') ?>" required />
+                                                <label for="inputIdno" style="<?php echo (@$validation && $validation->hasError('employee_idno')) ? 'margin-top: 30px;' : ''; ?>">
+                                                    Employee ID no. <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-floating mb-3">
+                                                <?php if (@$validation && $validation->hasError('employee_fname')){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_fname'); ?></label></span>
+                                                <?php } ?>
+                                                <input type="text" name="employee_fname" class="form-control" id="inputfname" placeholder="First Name" value="<?= set_value('employee_fname') ?>" required />
+                                                <label for="inputfname" style="<?php echo (@$validation && $validation->hasError('employee_fname')) ? 'margin-top: 30px;' : ''; ?>">
+                                                    First Name <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-floating mb-3">
+                                                <?php if (@$validation && $validation->hasError('employee_lname')){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_lname'); ?></label></span>
+                                                <?php } ?>
+                                                <input type="text" name="employee_lname" class="form-control" id="inputlname" placeholder="Last Name" value="<?= set_value('employee_lname') ?>" required />
+                                                <label for="inputlname" style="<?php echo (@$validation && $validation->hasError('employee_lname')) ? 'margin-top: 30px;' : ''; ?>">
+                                                    Last Name <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-floating mb-3">
+                                                <?php if (@$validation && $validation->hasError('email_address')){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('email_address'); ?></label></span>
+                                                <?php } ?>
+                                                <input type="email" name="email_address" class="form-control" id="inputEmail" placeholder="email@clsu.edu.ph" value="<?= set_value('email_address') ?>" required />
+                                                <label for="inputEmail" style="<?php echo (@$validation && $validation->hasError('email_address')) ? 'margin-top: 30px;' : ''; ?>">
+                                                    Official E-mail Address <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
                                             
-                                                <div class="form mb-3">
-                                                    <label style="color: red; font-style: italic;">(For your password, please use a combination of <b>Letters</b> (uppercase and lowercase), <b>Number(s)</b> and <b>Special Character(s)</b> with a minimum of <b>12 characters</b> in length, no space(s) and in any order)</label>
-                                                </div>
-                                                <div class="form-floating mb-3">
-                                                    <?php if ((@$validation && $validation->hasError('password')) || @$pass_error!=''){ ?>
-                                                        <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> 
-                                                            <label class="control-label"><?= $validation->getError('password'); ?></label>
-                                                            <?php if(@$pass_error!=''){ ?><label class="control-label"><?= @$pass_error; ?></label><?php } ?>
-                                                            
-                                                        </span>
-                                                    <?php } ?>
-                                                    <input type="password" name="password" class="form-control" id="inputpassword" value="<?= set_value('password') ?>" required placeholder="Password" />
-                                                    <label for="inputpassword" style="<?php echo ((@$validation && $validation->hasError('password')) || @$pass_error!='' ) ? 'margin-top: 30px;' : ''; ?>">
-                                                        Password
-                                                    </label>
-                                                </div>
-                                                <div class="form-floating mb-3">
-                                                    <?php if (@$validation && $validation->hasError('password_confirm')){ ?>
-                                                        <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('password_confirm'); ?></label></span>
-                                                    <?php } ?>
-                                                    <input type="password" name="password_confirm" class="form-control" id="input_confirm" value="<?= set_value('password_confirm') ?>" required  placeholder="Password" />
-                                                    <label for="input_confirm" style="<?php echo (@$validation && $validation->hasError('password_confirm')) ? 'margin-top: 30px;' : ''; ?>">
-                                                        Confirm Password
-                                                    </label>
-                                                    
-                                                </div>
+                                            <div class="form mb-3">
+                                                <label style="color: red; font-style: italic;">
+                                                    <i class="fas fa-lock me-1"></i>
+                                                    Password must be at least <b>12 characters</b> with uppercase, lowercase, numbers, and special characters.
+                                                </label>
+                                            </div>
+                                            <div class="form-floating mb-3">
+                                                <?php if ((@$validation && $validation->hasError('password')) || @$pass_error!=''){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> 
+                                                        <label class="control-label"><?= $validation->getError('password'); ?></label>
+                                                        <?php if(@$pass_error!=''){ ?><label class="control-label"><?= @$pass_error; ?></label><?php } ?>
+                                                    </span>
+                                                <?php } ?>
+                                                <input type="password" name="password" class="form-control" id="inputpassword" value="<?= set_value('password') ?>" required placeholder="Password" />
+                                                <label for="inputpassword" style="<?php echo ((@$validation && $validation->hasError('password')) || @$pass_error!='' ) ? 'margin-top: 30px;' : ''; ?>">
+                                                    Password <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-floating mb-3">
+                                                <?php if (@$validation && $validation->hasError('password_confirm')){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('password_confirm'); ?></label></span>
+                                                <?php } ?>
+                                                <input type="password" name="password_confirm" class="form-control" id="input_confirm" value="<?= set_value('password_confirm') ?>" required placeholder="Password" />
+                                                <label for="input_confirm" style="<?php echo (@$validation && $validation->hasError('password_confirm')) ? 'margin-top: 30px;' : ''; ?>">
+                                                    Confirm Password <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
                                             
-                                                <br><hr><br>
-                                                <div>
-                                                    <h5>Data Privacy Notice</h5>
-                                                    <blockquote>
-                                                        <p align="justify">By clicking <b>"Submit"</b>, you are giving consent to the 
-                                                            <b>Human Resources Management Office (HRMO)</b> and <b>Management Information System Office (MISO)</b> 
-                                                            of Central Luzon State University (CLSU)
-                                                            to collect, process, store and use your personal information. 
-                                                            <!--for the purpose/s described in the--> 
-                                                            <!--<a href="<?= site_url('data-privacy-policy') ?>" target="_blank"><b>Data Privacy Policy</b></a>.-->
-                                                        </p>
-                                                    </blockquote>
-                                                </div>
+                                            <br><hr><br>
+                                            <div class="alert alert-warning">
+                                                <strong>Data Privacy Notice:</strong><br>
+                                                By submitting, you consent to <b>HRMO</b> and <b>MISO</b> to collect and process your personal information in accordance with CLSU's Data Privacy Policy.
+                                            </div>
                                             
-                                                <!--<div class="form-check mb-3">
-                                                    <input class="form-check-input" id="inputRememberPassword" type="checkbox" value="" />
-                                                    <label class="form-check-label" for="inputRememberPassword">Remember Password</label>
-                                                </div>-->
-                                                <div class="align-items-center justify-content-between mt-4 mb-0 " style="text-align: right;">
-                                                    <!--<a class="small" href="password.html">Forgot Password?</a>-->
-                                                    <button type="submit" id="save" class="btn btn-success " role="button" style="width:40%; background-color:#007b3e; border-color: transparent;">
-                                                        <i class="fas fa-paper-plane"></i> Submit
+                                            <div class="align-items-center justify-content-between mt-4 mb-0 " style="text-align: right;">
+                                                <button type="submit" id="save_employee" class="btn btn-success" role="button" style="width:40%; background-color:#007b3e; border-color: transparent;">
+                                                    <i class="fas fa-paper-plane"></i> Register as Employee
+                                                </button>
+                                                <a href="<?php echo site_url('login'); ?>">
+                                                    <button type="button" class="btn btn-secondary" role="button" style="width:40%; border-color: transparent;">
+                                                        <i class="fas fa-ban"></i> Cancel
                                                     </button>
-                                                    <a href="<?php echo site_url('login'); ?>">
-                                                        <button type="button" class="btn btn-secondary " role="button" style="width:40%; border-color: transparent;">
-                                                            <i class="fas fa-ban"></i> Cancel
-                                                        </button>
-                                                    </a>
-                                                </div>
+                                                </a>
+                                            </div>
+                                        </form>
+                                        
+                                        <!-- Guest Registration Form -->
+                                        <form method="post" role="form" name="guest_registration_form" action="<?php echo $request->getUri()->getPath(); ?>" id="guestForm" style="display: none;">
+                                            <input type="hidden" name="registration_type" value="guest" />
+                                            
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle me-2"></i>
+                                                <strong>Guest Registration:</strong> Create an account without an Employee ID. You can still browse and join trainings!
+                                            </div>
+                                            
+                                            <div class="form-floating mb-3">
+                                                <?php if (@$validation && $validation->hasError('guest_fname')){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('guest_fname'); ?></label></span>
+                                                <?php } ?>
+                                                <input type="text" name="guest_fname" class="form-control" id="inputGuestFname" placeholder="First Name" value="<?= set_value('guest_fname') ?>" required />
+                                                <label for="inputGuestFname" style="<?php echo (@$validation && $validation->hasError('guest_fname')) ? 'margin-top: 30px;' : ''; ?>">
+                                                    First Name <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-floating mb-3">
+                                                <?php if (@$validation && $validation->hasError('guest_lname')){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('guest_lname'); ?></label></span>
+                                                <?php } ?>
+                                                <input type="text" name="guest_lname" class="form-control" id="inputGuestLname" placeholder="Last Name" value="<?= set_value('guest_lname') ?>" required />
+                                                <label for="inputGuestLname" style="<?php echo (@$validation && $validation->hasError('guest_lname')) ? 'margin-top: 30px;' : ''; ?>">
+                                                    Last Name <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-floating mb-3">
+                                                <?php if (@$validation && $validation->hasError('guest_email')){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('guest_email'); ?></label></span>
+                                                <?php } ?>
+                                                <input type="email" name="guest_email" class="form-control" id="inputGuestEmail" placeholder="your@email.com" value="<?= set_value('guest_email') ?>" required />
+                                                <label for="inputGuestEmail" style="<?php echo (@$validation && $validation->hasError('guest_email')) ? 'margin-top: 30px;' : ''; ?>">
+                                                    Personal E-mail Address <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
+                                            
+                                            <div class="form mb-3">
+                                                <label style="color: red; font-style: italic;">
+                                                    <i class="fas fa-lock me-1"></i>
+                                                    Password must be at least <b>8 characters</b> with uppercase, lowercase, numbers, and special characters.
+                                                </label>
+                                            </div>
+                                            <div class="form-floating mb-3">
+                                                <?php if ((@$validation && $validation->hasError('guest_password')) || @$pass_error!=''){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> 
+                                                        <label class="control-label"><?= $validation->getError('guest_password'); ?></label>
+                                                        <?php if(@$pass_error!=''){ ?><label class="control-label"><?= @$pass_error; ?></label><?php } ?>
+                                                    </span>
+                                                <?php } ?>
+                                                <input type="password" name="guest_password" class="form-control" id="inputGuestPassword" value="<?= set_value('guest_password') ?>" required placeholder="Password" />
+                                                <label for="inputGuestPassword" style="<?php echo ((@$validation && $validation->hasError('guest_password')) || @$pass_error!='' ) ? 'margin-top: 30px;' : ''; ?>">
+                                                    Password <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-floating mb-3">
+                                                <?php if (@$validation && $validation->hasError('guest_password_confirm')){ ?>
+                                                    <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('guest_password_confirm'); ?></label></span>
+                                                <?php } ?>
+                                                <input type="password" name="guest_password_confirm" class="form-control" id="inputGuestConfirm" value="<?= set_value('guest_password_confirm') ?>" required placeholder="Password" />
+                                                <label for="inputGuestConfirm" style="<?php echo (@$validation && $validation->hasError('guest_password_confirm')) ? 'margin-top: 30px;' : ''; ?>">
+                                                    Confirm Password <span class="text-danger">*</span>
+                                                </label>
+                                            </div>
+                                            
+                                            <br><hr><br>
+                                            <div class="alert alert-warning">
+                                                <strong>Data Privacy Notice:</strong><br>
+                                                By submitting, you consent to CLSU-TMS to collect and process your personal information in accordance with our Data Privacy Policy.
+                                            </div>
+                                            
+                                            <div class="align-items-center justify-content-between mt-4 mb-0 " style="text-align: right;">
+                                                <button type="submit" id="save_guest" class="btn btn-primary" role="button" style="width:40%; border-color: transparent;">
+                                                    <i class="fas fa-user-plus"></i> Register as Guest
+                                                </button>
+                                                <a href="<?php echo site_url('login'); ?>">
+                                                    <button type="button" class="btn btn-secondary" role="button" style="width:40%; border-color: transparent;">
+                                                        <i class="fas fa-ban"></i> Cancel
+                                                    </button>
+                                                </a>
+                                            </div>
                                         </form>
                                     </div>
                                     <div class="card-footer text-center py-3">
@@ -178,5 +258,46 @@
         </div>
         <script src="<?= base_url('public/assets/bootstrap/bootstrap.bundle.min.js'); ?>" crossorigin="anonymous"></script>
         <script src="<?= base_url('public/assets/js/scripts.js'); ?>"></script>
+        
+        <script>
+            let isEmployeeForm = true;
+            
+            function toggleRegistration() {
+                const employeeForm = document.getElementById('employeeForm');
+                const guestForm = document.getElementById('guestForm');
+                const toggleBtnText = document.getElementById('toggleBtnText');
+                
+                if (isEmployeeForm) {
+                    // Switch to Guest form
+                    employeeForm.style.display = 'none';
+                    guestForm.style.display = 'block';
+                    toggleBtnText.textContent = 'Register as Employee';
+                    
+                    // Toggle required attributes
+                    employeeForm.querySelectorAll('[required]').forEach(input => input.removeAttribute('required'));
+                    guestForm.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]').forEach(input => {
+                        if (!input.hasAttribute('data-was-required')) {
+                            input.setAttribute('data-was-required', 'true');
+                            input.setAttribute('required', 'required');
+                        }
+                    });
+                } else {
+                    // Switch to Employee form
+                    employeeForm.style.display = 'block';
+                    guestForm.style.display = 'none';
+                    toggleBtnText.textContent = 'Register as Guest';
+                    
+                    // Toggle required attributes
+                    guestForm.querySelectorAll('[required]').forEach(input => input.removeAttribute('required'));
+                    employeeForm.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]').forEach(input => {
+                        if (!input.hasAttribute('data-was-required')) {
+                            input.setAttribute('required', 'required');
+                        }
+                    });
+                }
+                
+                isEmployeeForm = !isEmployeeForm;
+            }
+        </script>
     </body>
 </html>

@@ -41,7 +41,7 @@ defined('WEEK')   || define('WEEK', 604800);
 defined('MONTH')  || define('MONTH', 2_592_000);
 defined('YEAR')   || define('YEAR', 31_536_000);
 defined('DECADE') || define('DECADE', 315_360_000);
-defined('MY_APP_NAME') || define('MY_APP_NAME', 'Training Management System');
+defined('MY_APP_NAME') || define('MY_APP_NAME', 'TMS Admin');
 
 /*
  | --------------------------------------------------------------------------

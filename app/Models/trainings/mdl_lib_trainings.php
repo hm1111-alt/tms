@@ -77,6 +77,7 @@ class mdl_lib_trainings extends Model
                         LEFT JOIN lib_training_category ltc ON lt.training_category_id = ltc.id_training_category
                         LEFT JOIN training_status ls ON lt.status_id = ls.id
                         LEFT JOIN training_attendees ta ON lt.id_training = ta.training_id
+                        WHERE ls.status IS NOT NULL AND ls.status != ''
                         GROUP BY lt.id_training
                         ORDER BY lt.training_datefrom DESC";
                 

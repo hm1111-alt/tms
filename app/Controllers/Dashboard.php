@@ -15,81 +15,182 @@ class Dashboard extends BaseController
 
         public function index()
         {
+                // Get user type to determine which dashboard to show
+                $user_type = session()->get('user_type_name');
                 $employee_id = session()->get('empid');
+                $emp_idno = session()->get('emp_idno');
+                $userid = session()->get('userid');
                 
-                $validation = $this->_validate_first_update();
+                log_message('info', '=== DASHBOARD DEBUG START ===');
+                log_message('info', 'User Type: ' . ($user_type ?? 'NULL'));
+                log_message('info', 'Employee ID: ' . ($employee_id ?? 'NULL'));
+                log_message('info', 'Emp ID No: ' . ($emp_idno ?? 'NULL'));
+                log_message('info', 'User ID: ' . ($userid ?? 'NULL'));
+                log_message('info', 'ALL SESSION DATA: ' . json_encode(session()->get()));
                 
-                if(($this->request->getPost() && $validation!=TRUE) || !$this->request->getPost()){
-
-                        if($this->request->getPost()){
-                            \Config\Services::validation();
-                            $data['validation'] = $this->validator;
-                        }
-
-                        $this->mdl_menu = new \App\Models\mdl_menu();
-
-                        $basic = $this->mdl_dashboard->get_employee_basic($employee_id);
+                // Initialize common data
+                $this->mdl_menu = new \App\Models\mdl_menu();
+                $data['user_type'] = $user_type;
+                
+                // Get employee basic info (for employees only, guests won't have this)
+                $data['basic'] = null;
+                $data['lib_offices'] = [];
+                $data['divisions'] = [];
+                $data['units'] = [];
+                
+                if (!empty($emp_idno) && stripos($user_type, 'guest') === false) {
+                    try {
+                        $basic = $this->mdl_dashboard->get_employee_basic($emp_idno);
                         $data['basic'] = $basic;
-
-                        $data['lib_offices'] = $this->mdl_menu->get_lib_offices();
                         
-                        if(@$basic[0]->emp_office!=''){
-                            $data['divisions'] = $this->mdl_menu->get_divisions_menu(@$basic[0]->emp_office);
+                        if(!empty($basic) && isset($basic[0])) {
+                            $data['lib_offices'] = $this->mdl_menu->get_lib_offices();
+                            
+                            if(@$basic[0]->emp_office!=''){
+                                $data['divisions'] = $this->mdl_menu->get_divisions_menu(@$basic[0]->emp_office);
+                            }
+                            if(@$basic[0]->emp_division!=''){
+                                $data['units'] = $this->mdl_menu->get_units_menu(@$basic[0]->emp_division);
+                            }
                         }
-                        if(@$basic[0]->emp_division!=''){
-                            $data['units'] = $this->mdl_menu->get_units_menu(@$basic[0]->emp_division);
-                        }
-                        
-                        // Training Statistics for Dashboard
-                        $db = \Config\Database::connect('training');
-                        try {
-                                $data['total_trainings'] = $db->table('employees_trainings')->selectCount('*')->where('employee_id', $employee_id)->get()->getRow()->count;
-                                $data['pending_trainings'] = $db->table('pending_trainings')->selectCount('*')->where('emp_idno', session()->get('emp_idno'))->get()->getRow()->count;
-                                
-                                // Get recent trainings
-                                $data['recent_trainings'] = $db->table('employees_trainings')
-                                        ->select('*, lib_trainings.training_name as title_seminar')
-                                        ->join('lib_trainings', 'lib_trainings.id_training = employees_trainings.training_id', 'left')
-                                        ->where('employee_id', $employee_id)
-                                        ->orderBy('addeddate', 'DESC')
-                                        ->limit(5)
-                                        ->get()
-                                        ->getResult();
-                        } catch (\Exception $e) {
-                                $data['total_trainings'] = 0;
-                                $data['pending_trainings'] = 0;
-                                $data['recent_trainings'] = [];
-                        }
-                        
-                        $data['page'] = $this->mdl_setting->get_page_details($this->class_name);
-                        $data['module_name'] = $data['page']->page_name;
-//                        die($data['page']->page_name);
-                
-                        $data['class_name'] = $this->class_name;
-                        
-                        $data['empidno'] = '';//$this->mdl_dashboard->encode(session()->get('emp_idno'));
-                        //$data['empidno'] = $this->mdl_dashboard->encode('20160822-01'); // for testing
-                        
-                        return view('layout/dashboard',$data);
-
-                } else {
-
-                        $this->mdl_profile = new \App\Models\mdl_profile();
-                        $res = $this->mdl_profile->save_first_update();
-
-                        if($res){
-                            session()->remove('first_login');
-                            session()->set('first_login', 0);
-                    
-                            session()->setFlashdata('success', 'Profile successfully updated.');
-                        } else {
-                            session()->setFlashdata('error', 'Something went wrong while updating profile.');
-                        }
-
-                        return redirect()->to('myprofile');
-
+                    } catch(\Exception $e) {
+                        log_message('error', 'Error loading employee data: ' . $e->getMessage());
+                    }
                 }
+                
+                // Load training statistics based on user type
+                $data = $this->load_training_statistics($data, $employee_id, $emp_idno, $user_type);
+                
+                $data['page'] = $this->mdl_setting->get_page_details($this->class_name);
+                $data['module_name'] = $data['page']->page_name;
+                $data['class_name'] = $this->class_name;
+                $data['empidno'] = '';
+                
+                log_message('info', 'Loading dashboard for user type: ' . $user_type);
+                
+                // Return different views based on user type (case-insensitive, check if contains keyword)
+                if (stripos($user_type, 'admin') !== false) {
+                    log_message('info', 'Redirecting to admin dashboard');
+                    return view('layout/dashboard_admin', $data);
+                } elseif (stripos($user_type, 'employee') !== false || stripos($user_type, 'staff') !== false || stripos($user_type, 'guest') !== false) {
+                    // Employee and Guest use the same dashboard view - only navbar/sidebar differs
+                    log_message('info', 'Redirecting to employee/guest dashboard');
+                    return view('layout/dashboard_employee', $data);
+                } else {
+                    log_message('warning', 'Unknown user type, loading default dashboard');
+                    return view('layout/dashboard', $data);
+                }
+        }
+        
+        /**
+         * Load training statistics based on user type
+         */
+        private function load_training_statistics($data, $employee_id, $emp_idno, $user_type)
+        {
+            // Initialize statistics
+            $data['total_trainings'] = 0;
+            $data['trainings_this_month'] = 0;
+            $data['upcoming_trainings'] = 0;
+            $data['completed_trainings'] = 0;
+            $data['category_summary'] = [];
+            $data['pending_trainings'] = 0;
+            $data['recent_trainings'] = [];
+            $data['my_trainings_count'] = 0;
+            
+            if(!empty($employee_id)) {
+                $db = \Config\Database::connect();
+                try {
+                    if (stripos($user_type, 'admin') !== false) {
+                        // Admin sees ALL trainings statistics
+                        $data['total_trainings'] = (int) $db->table('lib_trainings lt')
+                            ->join('training_status ts', 'ts.id = lt.status_id')
+                            ->where('ts.status IS NOT NULL', null, null, false)
+                            ->where('ts.status != ""', null, null, false)
+                            ->countAllResults();
                         
+                        $data['pending_trainings'] = (int) $db->table('pending_trainings')
+                            ->countAllResults();
+                            
+                    } elseif (stripos($user_type, 'employee') !== false || stripos($user_type, 'staff') !== false || stripos($user_type, 'guest') !== false) {
+                        // Employee and Guest see their own statistics
+                        $data['my_trainings_count'] = (int) $db->table('training_attendees')
+                            ->where('user_id', $userid)
+                            ->countAllResults();
+                        
+                        $data['pending_trainings'] = (int) $db->table('pending_trainings')
+                            ->where('emp_idno', $userid)
+                            ->where('is_approved', 0)
+                            ->countAllResults();
+                        
+                        // Total available trainings (for display purposes)
+                        $data['total_trainings'] = (int) $db->table('lib_trainings lt')
+                            ->join('training_status ts', 'ts.id = lt.status_id')
+                            ->where('ts.status IS NOT NULL', null, null, false)
+                            ->where('ts.status != ""', null, null, false)
+                            ->countAllResults();
+                        
+                        // Trainings this month
+                        $current_month = date('m');
+                        $current_year = date('Y');
+                        $data['trainings_this_month'] = (int) $db->table('lib_trainings lt')
+                            ->join('training_status ts', 'ts.id = lt.status_id')
+                            ->where('YEAR(lt.training_added_date)', $current_year)
+                            ->where('MONTH(lt.training_added_date)', $current_month)
+                            ->where('ts.status IS NOT NULL', null, null, false)
+                            ->where('ts.status != ""', null, null, false)
+                            ->countAllResults();
+                        
+                        // Upcoming trainings
+                        $today = date('Y-m-d');
+                        $data['upcoming_trainings'] = (int) $db->table('training_attendees ta')
+                            ->join('lib_trainings lt', 'lt.id_training = ta.training_id')
+                            ->where('ta.user_id', $emp_idno)
+                            ->where('lt.training_datefrom >', $today)
+                            ->countAllResults();
+                        
+                        // Completed trainings
+                        $today = date('Y-m-d');
+                        $data['completed_trainings'] = (int) $db->table('training_attendees ta')
+                            ->join('lib_trainings lt', 'lt.id_training = ta.training_id')
+                            ->where('ta.user_id', $emp_idno)
+                            ->where('lt.training_dateto <', $today)
+                            ->countAllResults();
+                        
+                        // Category summary
+                        $data['category_summary'] = $db->table('lib_trainings lt')
+                            ->select('ltc.training_category_name, COUNT(lt.id_training) as count')
+                            ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
+                            ->join('training_status ts', 'ts.id = lt.status_id')
+                            ->where('ts.status IS NOT NULL', null, null, false)
+                            ->where('ts.status != ""', null, null, false)
+                            ->groupBy('ltc.training_category_name')
+                            ->orderBy('count', 'DESC')
+                            ->get()
+                            ->getResultArray();
+                        
+                        // Recent trainings (available for all)
+                        $data['recent_trainings'] = $db->table('lib_trainings lt')
+                            ->select('lt.*, ltc.training_category_name, ts.status as status_name')
+                            ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
+                            ->join('training_status ts', 'ts.id = lt.status_id')
+                            ->where('ts.status IS NOT NULL', null, null, false)
+                            ->where('ts.status != ""', null, null, false)
+                            ->orderBy('lt.training_added_date', 'DESC')
+                            ->limit(5)
+                            ->get()
+                            ->getResultArray();
+                    }
+                    
+                    log_message('info', 'Training statistics loaded successfully');
+                } catch (\Exception $e) {
+                    log_message('error', 'Error loading training statistics: ' . $e->getMessage());
+                    log_message('error', 'Exception trace: ' . $e->getTraceAsString());
+                }
+            } else {
+                log_message('warning', 'No employee ID - using default statistics');
+            }
+            
+            return $data;
         }
         
         function load_memo()

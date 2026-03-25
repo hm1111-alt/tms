@@ -35,28 +35,721 @@ class Trainings extends BaseController
         
         return view('trainings/public_landing', $data);
     }
+    
+    /**
+     * Enroll in a training (requires login)
+     */
+    public function enroll($id)
+    {
+        // Check if user is logged in
+        if (!session()->get('logged_in')) {
+            session()->setFlashdata('error', 'Please login to join trainings.');
+            return redirect()->to('/login');
+        }
+        
+        try {
+            $db = \Config\Database::connect();
+            
+            // Get training details
+            $training = $db->table('lib_trainings lt')
+                ->select('lt.*, ltc.training_category_name, ts.status as status_name')
+                ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
+                ->join('training_status ts', 'ts.id = lt.status_id', 'left')
+                ->where('lt.id_training', $id)
+                ->get()
+                ->getRowArray();
+            
+            if (!$training) {
+                session()->setFlashdata('error', 'Training not found.');
+                return redirect()->to('/');
+            }
+            
+            // Check if already enrolled
+            $userid = session()->get('userid');
+            $existing = $db->table('training_attendees ta')
+                ->where('ta.training_id', $id)
+                ->where('ta.user_id', $userid)
+                ->get()
+                ->getRowArray();
+            
+            if ($existing) {
+                session()->setFlashdata('info', 'You are already enrolled in this training.');
+                return redirect()->to('trainings/view/' . $id);
+            }
+            
+            // Insert enrollment
+            $enrollment_data = [
+                'training_id' => $id,
+                'user_id' => $userid,
+                'date_joined' => date('Y-m-d H:i:s')
+            ];
+            
+            $db->table('training_attendees')->insert($enrollment_data);
+            
+            session()->setFlashdata('success', 'Successfully enrolled in ' . esc($training['training_name']) . '!');
+            return redirect()->to('trainings/view/' . $id);
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Error enrolling in training: ' . $e->getMessage());
+            session()->setFlashdata('error', 'Failed to enroll. Please try again.');
+            return redirect()->to('trainings/view/' . $id);
+        }
+    }
 
     public function index()
     {
-        $employee_id = session()->get('empid');
+        // Check user type
+        $user_type = session()->get('user_type_name');
         
-        try {
-            $db = \Config\Database::connect('default');
-            $table_exists = $db->query("SHOW TABLES LIKE 'employees_trainings'");
-            
-            if ($table_exists && $table_exists->getNumRows() > 0) {
-                $data['trainings'] = $this->mdl_employees_trainings->getApprovedTrainingsByEmployee($employee_id);
-            } else {
+        if (stripos($user_type, 'admin') !== false) {
+            // Admin view - show all trainings from lib_trainings with status
+            try {
+                $db = \Config\Database::connect();
+                
+                // Get all trainings with category and status (only those with non-empty status)
+                $data['trainings'] = $db->table('lib_trainings lt')
+                    ->select('lt.*, ltc.training_category_name, ts.status as status_name')
+                    ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
+                    ->join('training_status ts', 'ts.id = lt.status_id', 'left')
+                    ->groupStart()
+                        ->where('ts.status IS NOT NULL', null, null, false)
+                        ->orWhere('ts.status != ""', null, null, false)
+                    ->groupEnd()
+                    ->orderBy('lt.training_added_date', 'DESC')
+                    ->get()
+                    ->getResultArray();
+                
+                $data['total_trainings'] = count($data['trainings']);
+                
+            } catch (\Exception $e) {
+                log_message('error', 'Error loading admin trainings: ' . $e->getMessage());
                 $data['trainings'] = [];
+                $data['total_trainings'] = 0;
             }
+            
+            return view('trainings/admin_list', $data);
+        } else {
+            // Employee/Guest view - show all available trainings they can join
+            return $this->browse_all_trainings();
+        }
+    }
+    
+    /**
+     * Show all available trainings for employees/guests to browse and join
+     * This is the same as public_landing but with enrollment buttons for logged-in users
+     */
+    public function browse_all_trainings()
+    {
+        try {
+            $db = \Config\Database::connect();
+            $userid = session()->get('userid');
+            
+            // Load dashboard statistics for the layout
+            $data['my_trainings_count'] = 0;
+            $data['pending_trainings'] = 0;
+            $data['pending_trainings_count'] = 0;
+            $data['total_trainings'] = 0;
+            
+            if (!empty($userid)) {
+                // Get my trainings count
+                $my_trainings_result = $db->table('training_attendees ta')
+                    ->selectCount('*', 'count')
+                    ->where('ta.user_id', $userid)
+                    ->get()
+                    ->getRow();
+                $data['my_trainings_count'] = (int) ($my_trainings_result->count ?? 0);
+                
+                // Get pending trainings count
+                $pending_result = $db->table('pending_trainings')
+                    ->selectCount('*', 'count')
+                    ->where('emp_idno', $userid)
+                    ->where('is_approved', 0)
+                    ->get()
+                    ->getRow();
+                $pending_count = (int) ($pending_result->count ?? 0);
+                $data['pending_trainings_count'] = $pending_count;
+                $data['pending_trainings'] = $pending_count;
+                
+                // Get total available trainings
+                $total_result = $db->table('lib_trainings lt')
+                    ->selectCount('lt.id_training', 'count')
+                    ->join('training_status ts', 'ts.id = lt.status_id')
+                    ->where('ts.status IS NOT NULL', null, null, false)
+                    ->where('ts.status != ""', null, null, false)
+                    ->get()
+                    ->getRow();
+                $data['total_trainings'] = (int) ($total_result->count ?? 0);
+            }
+            
+            // Get trainings using the model method (same as public landing)
+            $data['trainings'] = $this->mdl_lib_trainings->getPublicTrainings();
+            
+            // Add enrollment status for current user
+            log_message('debug', '=== ENROLLMENT CHECK START ===');
+            log_message('debug', 'Current userid from session: ' . $userid);
+            
+            // Direct SQL test for training 13101
+            $test_query = $db->query("SELECT * FROM training_attendees WHERE training_id = 13101 AND user_id = ?", [$userid]);
+            $test_result = $test_query->getRowArray();
+            log_message('debug', 'Direct SQL test for training 13101: ' . print_r($test_result, true));
+            
+            foreach ($data['trainings'] as &$training) {
+                if (!empty($userid)) {
+                    $training_id = $training['id_training'] ?? $training['id'] ?? null;
+                    log_message('debug', 'Checking training ID: ' . $training_id . ' for user: ' . $userid);
+                    
+                    $enrolled = $db->table('training_attendees ta')
+                        ->where('ta.training_id', $training_id)
+                        ->where('ta.user_id', $userid)
+                        ->get()
+                        ->getRowArray();
+                    
+                    log_message('debug', 'Query result: ' . print_r($enrolled, true));
+                    $training['is_enrolled'] = !empty($enrolled);
+                    log_message('debug', 'is_enrolled for training ' . $training_id . ': ' . ($training['is_enrolled'] ? 'TRUE' : 'FALSE'));
+                } else {
+                    $training['is_enrolled'] = false;
+                    $training['enrollment_status'] = null;
+                }
+            }
+            log_message('debug', '=== ENROLLMENT CHECK END ===');
+            
+            $data['total_trainings'] = count($data['trainings']);
+            
         } catch (\Exception $e) {
-            log_message('error', 'Error loading trainings: ' . $e->getMessage());
+            log_message('error', 'Error loading browse trainings: ' . $e->getMessage());
             $data['trainings'] = [];
+            $data['total_trainings'] = 0;
         }
         
-        return view('trainings/training_tabs', $data);
+        return view('trainings/public_landing', $data);
     }
-
+    
+    /**
+     * View pending trainings (submitted by users for approval)
+     */
+    public function pending()
+    {
+        try {
+            $db = \Config\Database::connect();
+            $db_employee = \Config\Database::connect('db_employee');
+            $user_type = session()->get('user_type_name');
+            $userid = session()->get('userid');
+            
+            // Initialize dashboard statistics needed by the layout
+            $data['my_trainings_count'] = 0;
+            $data['pending_trainings'] = 0;
+            $data['pending_trainings_count'] = 0;
+            $data['total_trainings'] = 0;
+            
+            if (!empty($userid)) {
+                // Get my trainings count (approved trainings from training_attendees)
+                $my_trainings_result = $db->table('training_attendees ta')
+                    ->selectCount('*', 'count')
+                    ->where('ta.user_id', $userid)
+                    ->get()
+                    ->getRow();
+                $data['my_trainings_count'] = (int) ($my_trainings_result->count ?? 0);
+                
+                // Get pending trainings count (for badge)
+                $pending_result = $db->table('pending_trainings')
+                    ->selectCount('*', 'count')
+                    ->where('emp_idno', $userid)
+                    ->where('is_approved', 0)
+                    ->get()
+                    ->getRow();
+                $pending_count = (int) ($pending_result->count ?? 0);
+                $data['pending_trainings_count'] = $pending_count;
+                $data['pending_trainings'] = $pending_count;
+                
+                // Get total available trainings
+                $total_result = $db->table('lib_trainings lt')
+                    ->selectCount('lt.id_training', 'count')
+                    ->join('training_status ts', 'ts.id = lt.status_id')
+                    ->where('ts.status IS NOT NULL', null, null, false)
+                    ->where('ts.status != ""', null, null, false)
+                    ->get()
+                    ->getRow();
+                $data['total_trainings'] = (int) ($total_result->count ?? 0);
+            }
+            
+            if (stripos($user_type, 'admin') !== false) {
+                // Admin sees ALL pending trainings
+                // Note: We can't JOIN with employees table directly since it's in different DB
+                $pending_list = $db->table('pending_trainings pt')
+                    ->select('pt.*, ltc.training_category_name')
+                    ->join('lib_training_category ltc', 'ltc.id_training_category = pt.training_category_id', 'left')
+                    ->orderBy('pt.added_date', 'DESC')
+                    ->get()
+                    ->getResultArray();
+                    
+                // Get employee names separately for each record
+                foreach ($pending_list as &$pt) {
+                    if (!empty($pt['emp_idno'])) {
+                        $emp_data = $db_employee->table('employees')
+                            ->select('emp_fname, emp_lname, emp_mi, emp_extname')
+                            ->where('emp_idno', $pt['emp_idno'])
+                            ->get()
+                            ->getRowArray();
+                        if ($emp_data) {
+                            $pt['emp_fname'] = $emp_data['emp_fname'];
+                            $pt['emp_lname'] = $emp_data['emp_lname'];
+                            $pt['emp_mi'] = $emp_data['emp_mi'];
+                            $pt['emp_extname'] = $emp_data['emp_extname'];
+                        }
+                    }
+                }
+                $data['pending_trainings_list'] = $pending_list;
+            } else {
+                // Employee/Guest sees only their own pending trainings
+                $pending_list = $db->table('pending_trainings pt')
+                    ->select('pt.*, ltc.training_category_name')
+                    ->join('lib_training_category ltc', 'ltc.id_training_category = pt.training_category_id', 'left')
+                    ->where('pt.emp_idno', $userid)
+                    ->orderBy('pt.added_date', 'DESC')
+                    ->get()
+                    ->getResultArray();
+                
+                // Add employee name info
+                foreach ($pending_list as &$pt) {
+                    if (!empty($pt['emp_idno'])) {
+                        $emp_data = $db_employee->table('employees')
+                            ->select('emp_fname, emp_lname, emp_mi, emp_extname')
+                            ->where('emp_idno', $pt['emp_idno'])
+                            ->get()
+                            ->getRowArray();
+                        if ($emp_data) {
+                            $pt['emp_fname'] = $emp_data['emp_fname'];
+                            $pt['emp_lname'] = $emp_data['emp_lname'];
+                            $pt['emp_mi'] = $emp_data['emp_mi'];
+                            $pt['emp_extname'] = $emp_data['emp_extname'];
+                        }
+                    }
+                }
+                
+                $data['pending_trainings_list'] = $pending_list;
+            }
+            
+            $data['total_pending'] = count($data['pending_trainings_list']);
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Error loading pending trainings: ' . $e->getMessage());
+            $data['pending_trainings_list'] = [];
+            $data['total_pending'] = 0;
+            $data['my_trainings_count'] = 0;
+            $data['pending_trainings'] = 0;
+            $data['pending_trainings_count'] = 0;
+            $data['total_trainings'] = 0;
+        }
+        
+        // Set flag to hide quick actions on pending list page
+        $data['hide_quick_actions'] = true;
+        
+        return view('trainings/pending_list', $data);
+    }
+    
+    /**
+     * Show employee/guest their personal trainings (approved and pending)
+     */
+    public function my_trainings()
+    {
+        try {
+            $db = \Config\Database::connect();
+            $userid = session()->get('userid');
+            
+            // Get user type to determine what to show
+            $user_type = session()->get('user_type_name');
+            
+            log_message('debug', '=== MY_TRAININGS METHOD START ===');
+            log_message('debug', 'Accessed via URL: ' . current_url());
+            log_message('debug', 'User ID: ' . ($userid ?? 'NULL'));
+            log_message('debug', 'User Type: ' . ($user_type ?? 'NULL'));
+            
+            // Load dashboard statistics for the layout
+            $data['my_trainings_count'] = 0;
+            $data['pending_trainings'] = 0; // For dashboard_employee layout badge
+            $data['pending_trainings_count'] = 0;
+            $data['total_trainings'] = 0;
+            
+            if (!empty($userid)) {
+                // Get my trainings count
+                $my_trainings_result = $db->table('training_attendees ta')
+                    ->selectCount('*', 'count')
+                    ->where('ta.user_id', $userid)
+                    ->get()
+                    ->getRow();
+                $data['my_trainings_count'] = (int) ($my_trainings_result->count ?? 0);
+                log_message('debug', 'My trainings count: ' . $data['my_trainings_count']);
+                
+                // Get pending trainings count (for dashboard header and badge)
+                $pending_result = $db->table('pending_trainings')
+                    ->selectCount('*', 'count')
+                    ->where('emp_idno', $userid)
+                    ->where('is_approved', 0)
+                    ->get()
+                    ->getRow();
+                $pending_count = (int) ($pending_result->count ?? 0);
+                $data['pending_trainings_count'] = $pending_count;
+                $data['pending_trainings'] = $pending_count; // Same value for dashboard badge
+                log_message('debug', 'Pending count: ' . $pending_count);
+                
+                // Get total available trainings
+                $total_result = $db->table('lib_trainings lt')
+                    ->selectCount('lt.id_training', 'count')
+                    ->join('training_status ts', 'ts.id = lt.status_id')
+                    ->where('ts.status IS NOT NULL', null, null, false)
+                    ->where('ts.status != ""', null, null, false)
+                    ->get()
+                    ->getRow();
+                $data['total_trainings'] = (int) ($total_result->count ?? 0);
+            }
+            
+            // Initialize list variables to avoid undefined errors
+            $data['active_trainings_list'] = [];
+            $data['completed_trainings_list'] = [];
+            $data['pending_trainings_list'] = [];
+            
+            // For guests without emp_idno, show empty view with message
+            if (empty($userid) && stripos($user_type, 'guest') !== false) {
+                // Guest without emp_idno - show empty state
+                log_message('info', 'Guest user without emp_idno accessing My Trainings');
+                
+                // Initialize ALL required arrays
+                $data['upcoming_trainings_list'] = [];
+                $data['ongoing_trainings_list'] = [];
+                $data['completed_trainings_list'] = [];
+                $data['pending_trainings_list'] = [];
+                $data['total_upcoming'] = 0;
+                $data['total_ongoing'] = 0;
+                $data['total_completed'] = 0;
+                $data['total_pending'] = 0;
+                
+                log_message('debug', 'Returning my_trainings view (guest without emp_idno)');
+                return view('trainings/my_trainings', $data);
+            }
+            
+            if (empty($userid)) {
+                // User has no userid - show empty state
+                log_message('info', 'User without userid accessing My Trainings - userid is: ' . var_export($userid, true));
+                // Initialize ALL required arrays
+                $data['upcoming_trainings_list'] = [];
+                $data['ongoing_trainings_list'] = [];
+                $data['completed_trainings_list'] = [];
+                $data['pending_trainings_list'] = [];
+                $data['total_upcoming'] = 0;
+                $data['total_ongoing'] = 0;
+                $data['total_completed'] = 0;
+                $data['total_pending'] = 0;
+                return view('trainings/my_trainings', $data);
+            }
+            
+            log_message('debug', 'User has userid=' . $userid . ', proceeding to query database');
+            
+            // Get approved trainings (from training_attendees)
+            log_message('debug', 'Querying trainings for user_id: ' . $userid);
+            
+            // Test query first - get ALL trainings for this user without date filter
+            $test_all = $db->table('training_attendees ta')
+                ->select('lt.training_name, lt.training_datefrom, lt.training_dateto, lt.status_id')
+                ->join('lib_trainings lt', 'lt.id_training = ta.training_id')
+                ->where('ta.user_id', $userid)
+                ->get()
+                ->getResultArray();
+            
+            log_message('debug', 'TEST - ALL trainings for user (no date filter): ' . count($test_all));
+            log_message('debug', 'TEST DATA: ' . json_encode($test_all));
+            
+            // Get UPCOMING trainings (status = 'upcoming' OR status = 'open')
+            $data['upcoming_trainings_list'] = $db->table('training_attendees ta')
+                ->select('lt.*, ltc.training_category_name, ts.status as status_name')
+                ->join('lib_trainings lt', 'lt.id_training = ta.training_id')
+                ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
+                ->join('training_status ts', 'ts.id = lt.status_id', 'left')
+                ->where('ta.user_id', $userid)
+                ->where("(ts.status = 'upcoming' OR ts.status = 'open')", null, false)
+                ->orderBy('lt.training_datefrom', 'ASC')
+                ->get()
+                ->getResultArray();
+            
+            log_message('debug', 'Upcoming trainings count: ' . count($data['upcoming_trainings_list']));
+            if (!empty($data['upcoming_trainings_list'])) {
+                log_message('debug', 'Upcoming trainings data: ' . json_encode($data['upcoming_trainings_list']));
+            }
+            
+            // Get ONGOING trainings (status = 'ongoing')
+            $data['ongoing_trainings_list'] = $db->table('training_attendees ta')
+                ->select('lt.*, ltc.training_category_name, ts.status as status_name')
+                ->join('lib_trainings lt', 'lt.id_training = ta.training_id')
+                ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
+                ->join('training_status ts', 'ts.id = lt.status_id', 'left')
+                ->where('ta.user_id', $userid)
+                ->where('ts.status', 'ongoing')
+                ->orderBy('lt.training_datefrom', 'ASC')
+                ->get()
+                ->getResultArray();
+            
+            log_message('debug', 'Ongoing trainings count: ' . count($data['ongoing_trainings_list']));
+            if (!empty($data['ongoing_trainings_list'])) {
+                log_message('debug', 'Ongoing trainings data: ' . json_encode($data['ongoing_trainings_list']));
+            }
+            
+            // Get completed trainings (status = 'completed' OR status = 'closed')
+            log_message('debug', 'Querying completed trainings for user_id: ' . $userid);
+            
+            $data['completed_trainings_list'] = $db->table('training_attendees ta')
+                ->select('lt.*, ltc.training_category_name, ts.status as status_name')
+                ->join('lib_trainings lt', 'lt.id_training = ta.training_id')
+                ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
+                ->join('training_status ts', 'ts.id = lt.status_id', 'left')
+                ->where('ta.user_id', $userid)
+                ->where("(ts.status = 'completed' OR ts.status = 'closed')", null, false)
+                ->orderBy('lt.training_dateto', 'DESC')
+                ->get()
+                ->getResultArray();
+            
+            log_message('debug', 'Completed trainings count: ' . count($data['completed_trainings_list']));
+            
+            // Get pending trainings requests (use different name to avoid conflict)
+            log_message('debug', 'Querying pending trainings for emp_idno: ' . $userid);
+            
+            $pending_list = $db->table('pending_trainings pt')
+                ->select('lt.training_name, lt.training_category_id, ltc.training_category_name, pt.is_approved, pt.approve_remarks, pt.training_remarks, pt.added_date as date_requested')
+                ->join('lib_trainings lt', 'lt.id_training = pt.training_id', 'left')
+                ->join('lib_training_category ltc', 'ltc.id_training_category = pt.training_category_id', 'left')
+                ->where('pt.emp_idno', $userid)
+                ->orderBy('pt.added_date', 'DESC')
+                ->get()
+                ->getResultArray();
+            
+            // Add employee info for each pending training
+            $db_employee = \Config\Database::connect('db_employee');
+            foreach ($pending_list as &$pt) {
+                if (!empty($pt['emp_idno'])) {
+                    $emp_data = $db_employee->table('employees')
+                        ->select('emp_fname, emp_lname, emp_mi, emp_extname')
+                        ->where('emp_idno', $pt['emp_idno'])
+                        ->get()
+                        ->getRowArray();
+                    if ($emp_data) {
+                        $pt['emp_fname'] = $emp_data['emp_fname'];
+                        $pt['emp_lname'] = $emp_data['emp_lname'];
+                        $pt['emp_mi'] = $emp_data['emp_mi'];
+                        $pt['emp_extname'] = $emp_data['emp_extname'];
+                    }
+                }
+            }
+            $data['pending_trainings_list'] = $pending_list;
+            
+            $data['total_upcoming'] = count($data['upcoming_trainings_list']);
+            $data['total_ongoing'] = count($data['ongoing_trainings_list']);
+            $data['total_completed'] = count($data['completed_trainings_list']);
+            $data['total_pending'] = count($data['pending_trainings_list']);
+            
+            log_message('debug', 'Total Upcoming: ' . $data['total_upcoming']);
+            log_message('debug', 'Total Ongoing: ' . $data['total_ongoing']);
+            log_message('debug', 'Total Completed: ' . $data['total_completed']);
+            log_message('debug', 'Total Pending: ' . $data['total_pending']);
+            log_message('debug', '=== MY_TRAININGS METHOD END ===');
+            
+        } catch (\Exception $e) {
+            log_message('error', 'CRITICAL ERROR in my_trainings: ' . $e->getMessage());
+            log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+            
+            // Display error on screen for debugging AND stop execution
+            echo '<div style="background:red; color:white; padding:20px; margin:20px; font-family: monospace;">';
+            echo '<h3>ERROR in my_trainings():</h3>';
+            echo '<p><strong>' . esc($e->getMessage()) . '</strong></p>';
+            echo '<pre>' . esc($e->getTraceAsString()) . '</pre>';
+            echo '</div>';
+            
+            $data['upcoming_trainings_list'] = [];
+            $data['ongoing_trainings_list'] = [];
+            $data['completed_trainings_list'] = [];
+            $data['pending_trainings_list'] = [];
+            $data['total_upcoming'] = 0;
+            $data['total_ongoing'] = 0;
+            $data['total_completed'] = 0;
+            $data['total_pending'] = 0;
+        }
+        
+            // Set flag to hide quick actions and welcome message on My Trainings page
+            $data['hide_quick_actions'] = true;
+            $data['hide_welcome_message'] = true;
+            $data['hide_header_count'] = true;
+            
+            // Set custom header titles for My Trainings page
+            $data['page_title'] = 'My Trainings';
+            $data['portal_name'] = 'Dashboard';
+            $data['show_green_header'] = true;
+            
+            log_message('debug', 'About to return my_trainings view');
+            return view('trainings/my_trainings', $data);
+    }
+    
+    public function add()
+    {
+        if ($this->request->getMethod() === 'post') {
+            // Validation rules
+            $rules = [
+                'training_name' => [
+                    'label' => 'Training Title',
+                    'rules' => 'required|trim|min_length[5]|max_length[200]'
+                ],
+                'training_category_id' => [
+                    'label' => 'Category',
+                    'rules' => 'required|numeric'
+                ],
+                'training_datefrom' => [
+                    'label' => 'Start Date',
+                    'rules' => 'required|valid_date'
+                ],
+                'training_dateto' => [
+                    'label' => 'End Date',
+                    'rules' => 'required|valid_date|check_end_date[' . $this->request->getPost('training_datefrom') . ']'
+                ],
+                'training_deadline' => [
+                    'label' => 'Enrollment Deadline',
+                    'rules' => 'permit_empty|valid_date|check_deadline[' . $this->request->getPost('training_datefrom') . ',' . $this->request->getPost('training_dateto') . ']'
+                ],
+                'training_facilitator' => [
+                    'label' => 'Facilitator',
+                    'rules' => 'required|trim|min_length[3]|max_length[200]'
+                ],
+                'training_venue' => [
+                    'label' => 'Venue',
+                    'rules' => 'required|trim|min_length[3]|max_length[300]'
+                ],
+                'training_hours' => [
+                    'label' => 'Training Hours',
+                    'rules' => 'required|numeric|greater_than[0]'
+                ],
+                'training_attendees' => [
+                    'label' => 'Number of Attendees',
+                    'rules' => 'permit_empty|numeric|greater_than[0]'
+                ],
+                'training_description.*' => [
+                    'label' => 'Training Description Item',
+                    'rules' => 'permit_empty|max_length[2000]'
+                ],
+                'training_learnings.*' => [
+                    'label' => 'Training Learning Item',
+                    'rules' => 'permit_empty|max_length[2000]'
+                ],
+                'training_is_local' => [
+                    'label' => 'Is Local',
+                    'rules' => 'permit_empty|in_list[0,1]'
+                ],
+                'training_require_upload' => [
+                    'label' => 'Require Upload',
+                    'rules' => 'permit_empty|in_list[0,1]'
+                ],
+                'training_require_feedback' => [
+                    'label' => 'Require Feedback',
+                    'rules' => 'permit_empty|in_list[0,1]'
+                ]
+            ];
+            
+            if ($this->validate($rules)) {
+                try {
+                    $db = \Config\Database::connect();
+                    $db->transStart();
+                    
+                    // Generate reference number (15-20 characters)
+                    $refno = 'TRN-' . strtoupper(substr(uniqid(), -8)) . '-' . date('Ymd');
+                    
+                    // Insert into lib_trainings
+                    $training_data = [
+                        'training_name' => $this->request->getPost('training_name'),
+                        'training_category_id' => $this->request->getPost('training_category_id'),
+                        'training_datefrom' => $this->request->getPost('training_datefrom'),
+                        'training_dateto' => $this->request->getPost('training_dateto'),
+                        'training_deadline' => $this->request->getPost('training_deadline') ?: null,
+                        'training_facilitator' => $this->request->getPost('training_facilitator'),
+                        'training_venue' => $this->request->getPost('training_venue'),
+                        'training_hours' => $this->request->getPost('training_hours'),
+                        'no_of_attendees' => $this->request->getPost('training_attendees') ?: null,
+                        'training_is_local' => $this->request->getPost('training_is_local') ?? 0,
+                        'training_require_upload' => $this->request->getPost('training_require_upload') ?? 0,
+                        'training_require_feedback' => $this->request->getPost('training_require_feedback') ?? 0,
+                        'training_refno' => $refno,
+                        'status_id' => 1, // Default to "upcoming" status
+                        'training_added_date' => date('Y-m-d H:i:s'),
+                        'training_added_by' => session()->get('empid')
+                    ];
+                    
+                    log_message('info', 'Inserting training data: ' . json_encode($training_data));
+                    
+                    $db->table('lib_trainings')->insert($training_data);
+                    $training_id = $db->insertID();
+                    
+                    log_message('info', 'Training inserted with ID: ' . $training_id);
+                    
+                    // Insert multiple training descriptions if provided
+                    $descriptions = $this->request->getPost('training_description');
+                    if (is_array($descriptions) && !empty($descriptions)) {
+                        foreach ($descriptions as $desc) {
+                            if (!empty(trim($desc))) {
+                                $db->table('lib_trainings_des')->insert([
+                                    'training_id' => $training_id,
+                                    'training_des' => trim($desc)
+                                ]);
+                            }
+                        }
+                    }
+                    
+                    // Insert multiple training learnings if provided
+                    $learnings = $this->request->getPost('training_learnings');
+                    if (is_array($learnings) && !empty($learnings)) {
+                        foreach ($learnings as $learning) {
+                            if (!empty(trim($learning))) {
+                                $db->table('lib_trainings_learnings')->insert([
+                                    'training_id' => $training_id,
+                                    'training_learning' => trim($learning)
+                                ]);
+                            }
+                        }
+                    }
+                    
+                    $db->transComplete();
+                    
+                    if ($db->transStatus() > 0) {
+                        log_message('info', 'Training created successfully with Ref No: ' . $refno);
+                        session()->setFlashdata('success', 'Training successfully created! Reference No: ' . $refno);
+                        return redirect()->to('trainings');
+                    } else {
+                        log_message('error', 'Transaction failed for training creation');
+                        session()->setFlashdata('error', 'Failed to create training. Please try again.');
+                    }
+                    
+                } catch (\Exception $e) {
+                    log_message('error', 'Error creating training: ' . $e->getMessage());
+                    log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+                    session()->setFlashdata('error', 'An error occurred while creating the training: ' . $e->getMessage());
+                }
+            } else {
+                // Validation failed
+                log_message('warning', 'Validation failed for training creation');
+                $data['validation'] = $this->validator;
+                
+                // Log validation errors
+                $errors = $this->validator->getErrors();
+                log_message('warning', 'Validation errors count: ' . count($errors));
+                foreach ($errors as $field => $error) {
+                    log_message('warning', 'Validation error on ' . $field . ': ' . $error);
+                }
+            }
+        }
+        
+        // Load categories for dropdown
+        $this->mdl_categories = new \App\Models\trainings\mdl_lib_training_categories();
+        $data['categories'] = $this->mdl_categories->getAllCategories();
+        
+        return view('trainings/add_form', $data);
+    }
+    
+    /**
+     * Load approved trainings
+     */
     public function load_approved_trainings()
     {
         try {
@@ -202,8 +895,8 @@ class Trainings extends BaseController
                 return '<div class="alert alert-danger">Unable to connect to training database</div>';
             }
             
-            log_message('debug', 'Connected to training database, querying pending_trainings for approved records');
-            
+            // First, try to find in pending_trainings (for pending/approved trainings)
+            log_message('debug', 'Checking pending_trainings table...');
             $training = $db->table('pending_trainings pt')
                           ->select('pt.*, ltc.training_category_name')
                           ->join('lib_training_category ltc', 'ltc.id_training_category = pt.training_category_id', 'left')
@@ -211,15 +904,29 @@ class Trainings extends BaseController
                           ->get()
                           ->getRowArray();
             
-            log_message('debug', 'Pending/approved training query result: ' . ($training ? 'FOUND' : 'NOT FOUND'));
-            
-            if (!$training) {
-                log_message('debug', 'Training not found in pending_trainings');
-                return '<div class="alert alert-warning">Training record not found</div>';
-            } else {
+            if ($training) {
+                log_message('debug', 'Found in pending_trainings');
                 $training['is_pending'] = empty($training['is_approved']) || $training['is_approved'] == 0;
-                log_message('debug', 'Training status - is_pending: ' . ($training['is_pending'] ? 'true' : 'false') . ', is_approved: ' . ($training['is_approved'] ?? 'null'));
+                $training['from_lib'] = false;
+            } else {
+                // If not found in pending_trainings, check lib_trainings (main library)
+                log_message('debug', 'Not found in pending_trainings, checking lib_trainings...');
+                $training = $db->table('lib_trainings lt')
+                              ->select('lt.*, ltc.training_category_name, ts.status as status_name')
+                              ->join('lib_training_category ltc', 'lt.training_category_id = ltc.id_training_category', 'left')
+                              ->join('training_status ts', 'ts.id = lt.status_id', 'left')
+                              ->where('lt.id_training', $id)
+                              ->get()
+                              ->getRowArray();
+                
+                if ($training) {
+                    log_message('debug', 'Found in lib_trainings');
+                    $training['is_pending'] = false;
+                    $training['from_lib'] = true;
+                }
             }
+            
+            log_message('debug', 'Training query result: ' . ($training ? 'FOUND' : 'NOT FOUND'));
             
             if (!$training) {
                 log_message('debug', 'Training record not found for ID: ' . $id);
@@ -272,18 +979,306 @@ class Trainings extends BaseController
             
             log_message('debug', 'Training type: ' . $training_type);
             
+            // Check if current user is already enrolled (for logged-in users)
+            $userid = session()->get('userid');
+            if (!empty($userid)) {
+                $enrolled = $db->table('training_attendees ta')
+                    ->where('ta.training_id', $id)
+                    ->where('ta.user_id', $userid)
+                    ->get()
+                    ->getRowArray();
+                $training['is_enrolled'] = !empty($enrolled);
+                log_message('debug', 'User enrollment status for training ' . $id . ': ' . ($training['is_enrolled'] ? 'ENROLLED' : 'NOT ENROLLED'));
+            } else {
+                $training['is_enrolled'] = false;
+            }
+            
             $data = [
                 'training' => $training,
                 'training_type' => $training_type
             ];
             
             log_message('debug', 'Loading training_details view');
-            return view('trainings/training_details', $data);
+            
+            // Check if user is logged in - use different views for public vs authenticated users
+            if (session()->get('logged_in')) {
+                // Authenticated users see the admin/internal view with sidebar
+                return view('trainings/training_details', $data);
+            } else {
+                // Public users see the simplified public view
+                return view('trainings/public_training_details', $data);
+            }
             
         } catch (\Exception $e) {
             log_message('error', 'Error loading training details: ' . $e->getMessage());
             log_message('error', 'Exception trace: ' . $e->getTraceAsString());
             return '<div class="alert alert-danger">Error loading training details: ' . $e->getMessage() . '</div>';
+        }
+    }
+
+    public function delete($id)
+    {
+        try {
+            $db = \Config\Database::connect();
+            $db->transStart();
+            
+            // Check if training exists
+            $training = $db->table('lib_trainings')
+                ->where('id_training', $id)
+                ->get()
+                ->getRowArray();
+            
+            if (!$training) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Training not found.'
+                ]);
+            }
+            
+            log_message('info', 'Deleting training ID: ' . $id . ' - Name: ' . $training['training_name']);
+            
+            // Delete related records first (foreign key constraints)
+            $db->table('lib_trainings_des')->delete(['training_id' => $id]);
+            $db->table('lib_trainings_learnings')->delete(['training_id' => $id]);
+            
+            // Delete the training
+            $db->table('lib_trainings')->delete(['id_training' => $id]);
+            
+            $db->transComplete();
+            
+            if ($db->transStatus() > 0) {
+                log_message('info', 'Training deleted successfully: ' . $training['training_name']);
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Training deleted successfully.'
+                ]);
+            } else {
+                log_message('error', 'Transaction failed for deleting training ID: ' . $id);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to delete training. Transaction error.'
+                ]);
+            }
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Error deleting training: ' . $e->getMessage());
+            log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred while deleting the training: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
+    public function edit($id)
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            // Get training data
+            $data['training'] = $db->table('lib_trainings')
+                ->where('id_training', $id)
+                ->get()
+                ->getRowArray();
+            
+            if (!$data['training']) {
+                session()->setFlashdata('error', 'Training not found.');
+                return redirect()->to('trainings');
+            }
+            
+            // Get descriptions
+            $data['descriptions'] = $db->table('lib_trainings_des')
+                ->where('training_id', $id)
+                ->get()
+                ->getResultArray();
+            
+            // Get learnings
+            $data['learnings'] = $db->table('lib_trainings_learnings')
+                ->where('training_id', $id)
+                ->get()
+                ->getResultArray();
+            
+            // Get registered attendee count
+            $data['registered_count'] = $db->table('training_attendees')
+                ->where('training_id', $id)
+                ->countAllResults();
+            
+            // Load categories for dropdown
+            $this->mdl_categories = new \App\Models\trainings\mdl_lib_training_categories();
+            $data['categories'] = $this->mdl_categories->getAllCategories();
+            
+            return view('trainings/edit_form', $data);
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Error loading edit form: ' . $e->getMessage());
+            log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+            session()->setFlashdata('error', 'Error loading training data.');
+            return redirect()->to('trainings');
+        }
+    }
+    
+    public function update()
+    {
+        if ($this->request->getMethod() === 'post') {
+            $id = $this->request->getPost('id_training');
+            
+            // Validation rules (same as add)
+            $rules = [
+                'training_name' => [
+                    'label' => 'Training Title',
+                    'rules' => 'required|trim|min_length[5]|max_length[200]'
+                ],
+                'training_category_id' => [
+                    'label' => 'Category',
+                    'rules' => 'required|numeric'
+                ],
+                'training_datefrom' => [
+                    'label' => 'Start Date',
+                    'rules' => 'required|valid_date'
+                ],
+                'training_dateto' => [
+                    'label' => 'End Date',
+                    'rules' => 'required|valid_date|check_end_date[' . $this->request->getPost('training_datefrom') . ']'
+                ],
+                'training_deadline' => [
+                    'label' => 'Enrollment Deadline',
+                    'rules' => 'permit_empty|valid_date|check_deadline[' . $this->request->getPost('training_datefrom') . ',' . $this->request->getPost('training_dateto') . ']'
+                ],
+                'training_facilitator' => [
+                    'label' => 'Facilitator',
+                    'rules' => 'required|trim|min_length[3]|max_length[200]'
+                ],
+                'training_venue' => [
+                    'label' => 'Venue',
+                    'rules' => 'required|trim|min_length[3]|max_length[300]'
+                ],
+                'training_hours' => [
+                    'label' => 'Training Hours',
+                    'rules' => 'required|numeric|greater_than[0]'
+                ],
+                'training_attendees' => [
+                    'label' => 'Number of Attendees',
+                    'rules' => 'permit_empty|numeric|greater_than[0]'
+                ],
+                'training_description.*' => [
+                    'label' => 'Training Description Item',
+                    'rules' => 'permit_empty|max_length[2000]'
+                ],
+                'training_learnings.*' => [
+                    'label' => 'Training Learning Item',
+                    'rules' => 'permit_empty|max_length[2000]'
+                ],
+                'training_is_local' => [
+                    'label' => 'Is Local',
+                    'rules' => 'permit_empty|in_list[0,1]'
+                ],
+                'training_require_upload' => [
+                    'label' => 'Require Upload',
+                    'rules' => 'permit_empty|in_list[0,1]'
+                ],
+                'training_require_feedback' => [
+                    'label' => 'Require Feedback',
+                    'rules' => 'permit_empty|in_list[0,1]'
+                ]
+            ];
+            
+            if ($this->validate($rules)) {
+                try {
+                    $db = \Config\Database::connect();
+                    $db->transStart();
+                    
+                    // Update lib_trainings
+                    $training_data = [
+                        'training_name' => $this->request->getPost('training_name'),
+                        'training_category_id' => $this->request->getPost('training_category_id'),
+                        'training_datefrom' => $this->request->getPost('training_datefrom'),
+                        'training_dateto' => $this->request->getPost('training_dateto'),
+                        'training_deadline' => $this->request->getPost('training_deadline') ?: null,
+                        'training_facilitator' => $this->request->getPost('training_facilitator'),
+                        'training_venue' => $this->request->getPost('training_venue'),
+                        'training_hours' => $this->request->getPost('training_hours'),
+                        'no_of_attendees' => $this->request->getPost('training_attendees') ?: null,
+                        'training_is_local' => $this->request->getPost('training_is_local') ?? 0,
+                        'training_require_upload' => $this->request->getPost('training_require_upload') ?? 0,
+                        'training_require_feedback' => $this->request->getPost('training_require_feedback') ?? 0,
+                        'training_added_by' => session()->get('empid')
+                    ];
+                    
+                    $db->table('lib_trainings')->update($training_data, ['id_training' => $id]);
+                    
+                    // Delete existing descriptions and learnings
+                    $db->table('lib_trainings_des')->delete(['training_id' => $id]);
+                    $db->table('lib_trainings_learnings')->delete(['training_id' => $id]);
+                    
+                    // Insert new descriptions
+                    $descriptions = $this->request->getPost('training_description');
+                    if (is_array($descriptions) && !empty($descriptions)) {
+                        foreach ($descriptions as $desc) {
+                            if (!empty(trim($desc))) {
+                                $db->table('lib_trainings_des')->insert([
+                                    'training_id' => $id,
+                                    'training_des' => trim($desc)
+                                ]);
+                            }
+                        }
+                    }
+                    
+                    // Insert new learnings
+                    $learnings = $this->request->getPost('training_learnings');
+                    if (is_array($learnings) && !empty($learnings)) {
+                        foreach ($learnings as $learning) {
+                            if (!empty(trim($learning))) {
+                                $db->table('lib_trainings_learnings')->insert([
+                                    'training_id' => $id,
+                                    'training_learning' => trim($learning)
+                                ]);
+                            }
+                        }
+                    }
+                    
+                    $db->transComplete();
+                    
+                    if ($db->transStatus() > 0) {
+                        log_message('info', 'Training updated successfully ID: ' . $id);
+                        session()->setFlashdata('success', 'Training successfully updated!');
+                        return redirect()->to('trainings');
+                    } else {
+                        log_message('error', 'Transaction failed for updating training ID: ' . $id);
+                        session()->setFlashdata('error', 'Failed to update training. Please try again.');
+                    }
+                    
+                } catch (\Exception $e) {
+                    log_message('error', 'Error updating training: ' . $e->getMessage());
+                    log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+                    session()->setFlashdata('error', 'An error occurred while updating the training: ' . $e->getMessage());
+                }
+            } else {
+                // Validation failed
+                log_message('warning', 'Validation failed for training update ID: ' . $id);
+                $data['validation'] = $this->validator;
+                
+                // Get existing data for repopulating form
+                $db = \Config\Database::connect();
+                $data['training'] = $db->table('lib_trainings')
+                    ->where('id_training', $id)
+                    ->get()
+                    ->getRowArray();
+                    
+                $data['descriptions'] = $db->table('lib_trainings_des')
+                    ->where('training_id', $id)
+                    ->get()
+                    ->getResultArray();
+                    
+                $data['learnings'] = $db->table('lib_trainings_learnings')
+                    ->where('training_id', $id)
+                    ->get()
+                    ->getResultArray();
+                    
+                $this->mdl_categories = new \App\Models\trainings\mdl_lib_training_categories();
+                $data['categories'] = $this->mdl_categories->getAllCategories();
+                
+                return view('trainings/edit_form', $data);
+            }
         }
     }
 

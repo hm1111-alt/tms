@@ -2,8 +2,17 @@
             <!-- Navbar Brand-->
             <a class="navbar-brand ps-3" href="<?= site_url('/') ?>" style="height: 50px;">
                 <img src="<?= images('clsu_logo.png'); ?>" style="height: 35px; margin-right: 10px;">
-                Training Management System
+                <?php 
+                $user_type = session()->get('user_type_name');
+                if (stripos($user_type, 'guest') !== false) {
+                    echo 'Guest Portal';
+                } else {
+                    echo 'Employee Portal';
+                }
+                ?>
             </a>
+            <!-- Sidebar Toggle-->
+            <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
             
             <!-- Navbar Search (Empty placeholder for spacing) -->
             <form class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0">
@@ -13,7 +22,7 @@
             <!-- Navbar-->
             <ul class="navbar-nav ms-auto ms-md-0 me-3 me-lg-4">
                 <?php if(session()->get('logged_in')): ?>
-                    <!-- Logged In User Menu -->
+                    <!-- Employee/Guest User Menu -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <?php 
@@ -39,12 +48,7 @@
                         </ul>
                     </li>
                 <?php else: ?>
-                    <!-- Guest Register/Login Buttons -->
-                    <li class="nav-item me-2">
-                        <a class="btn btn-primary btn-sm" href="<?= site_url('/register') ?>">
-                            <i class="fas fa-user-plus me-1"></i> Register
-                        </a>
-                    </li>
+                    <!-- Guest Login Button -->
                     <li class="nav-item">
                         <a class="btn btn-success btn-sm" href="<?= site_url('/login') ?>">
                             <i class="fas fa-sign-in-alt me-1"></i> Login

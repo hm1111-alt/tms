@@ -1,5 +1,3 @@
-<?php $request = \Config\Services::request(); ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,6 +20,25 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        
+        .sb-nav-fixed #layoutSidenav_content {
+            padding-top: 56px;
+        }
+        
+        /* Override sidebar styles - force no sidebar */
+        #layoutSidenav {
+            display: block !important;
+            width: 100% !important;
+        }
+        
+        #layoutSidenav_content {
+            margin-left: 0 !important;
+            width: 100% !important;
+        }
+        
         .detail-card {
             background-color: white;
             border-radius: 0.375rem;
@@ -100,14 +117,14 @@
             font-weight: 500;
         }
         
-        /* Force no sidebar - full width content */
-        #layoutSidenav_content {
-            margin-left: 0 !important;
-            width: 100% !important;
-        }
-        
-        .sb-nav-fixed #layoutSidenav_content {
-            padding-top: 56px;
+        .action-buttons {
+            position: sticky;
+            bottom: 20px;
+            z-index: 100;
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
         }
     </style>
 </head>
@@ -115,19 +132,10 @@
 <body class="sb-nav-fixed">
     
     <?php 
-    // Determine which navbar to use based on user type
-    $user_type = session()->get('user_type_name');
-    if ($user_type === 'Admin'): 
-        echo $this->include('layout/navbar_admin');
-    elseif ($user_type === 'Employee'): 
-        echo $this->include('layout/navbar_employee');
-    elseif ($user_type === 'Guest'): 
-        echo $this->include('layout/navbar_public');
-    else: 
-        echo $this->include('layout/navbar');
-    endif; 
+    // Use public navbar (no sidebar) for non-logged-in users
+    echo $this->include('layout/navbar_public');
     ?>
-    
+
     <div id="layoutSidenav_content">
             
             <div class="container-fluid px-4">
@@ -141,14 +149,14 @@
                                     <i class="fas fa-graduation-cap"></i> Training Details
                                 </h1>
                                 <ol class="breadcrumb mb-3">
-                                    <li class="breadcrumb-item"><a href="<?= site_url('trainings') ?>">All Trainings</a></li>
+                                    <li class="breadcrumb-item"><a href="<?= site_url('/') ?>">Available Trainings</a></li>
                                     <li class="breadcrumb-item active"><?= esc($training['training_name']) ?></li>
                                 </ol>
                             </div>
                             <div>
                                 <ul class="page_title_button" style="list-style: none; margin: 0;">
                                     <li>
-                                        <a href="<?= site_url('trainings') ?>" class="btn btn-light">
+                                        <a href="<?= site_url('/') ?>" class="btn btn-light">
                                             <i class="fas fa-arrow-circle-left"></i>
                                             <div class="text-muted">Back</div>
                                         </a>
@@ -171,7 +179,6 @@
                         
                         <!-- Description Section -->
                         <?php 
-                        // Get descriptions from database
                         $descriptions = [];
                         if (isset($training['from_lib']) && $training['from_lib']) {
                             $db = \Config\Database::connect();
@@ -197,7 +204,6 @@
                         
                         <!-- Learnings Section -->
                         <?php 
-                        // Get learnings from database
                         $learnings = [];
                         if (isset($training['from_lib']) && $training['from_lib']) {
                             $db = \Config\Database::connect();
@@ -221,53 +227,36 @@
                         </div>
                         <?php endif; ?>
                         
-                        <!-- Training Details Section -->
                         <hr style="margin: 2rem 0;">
                         
+                        <!-- Training Information -->
                         <div class="row">
                             <div class="col-md-6">
                                 <h5 class="section-title"><i class="fas fa-info-circle"></i> Training Information</h5>
                                 <table class="info-table">
                                     <tr>
-                                        <td class="info-label">Type:</td>
-                                        <td class="info-value"><span class="badge bg-info badge-custom"><?= esc($training_type) ?></span></td>
+                                        <td class="info-label">Category:</td>
+                                        <td class="info-value">
+                                            <span class="badge bg-info badge-custom"><?= esc($training_type) ?></span>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td class="info-label">Duration:</td>
-                                        <td class="info-value"><strong><?= esc($training['training_hours'] ?? $training['hours'] ?? 'N/A') ?></strong> hours</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="info-label">Capacity:</td>
                                         <td class="info-value">
-                                            <?php 
-                                            $capacity = $training['no_of_attendees'] ?? $training['training_attendees'] ?? 0;
-                                            $registered = $registered_count ?? 0;
-                                            if ($capacity > 0): ?>
-                                                <strong><?= esc($registered) ?></strong> of <strong><?= esc($capacity) ?></strong> registered
-                                                <?php 
-                                                $percentage = ($capacity > 0) ? ($registered / $capacity) * 100 : 0;
-                                                $slots_left = $capacity - $registered;
-                                                if ($slots_left <= 0): ?>
-                                                    <span class="badge bg-danger ms-1" style="background-color: #dc3545 !important;">Fully Booked</span>
-                                                <?php elseif ($slots_left <= 5): ?>
-                                                    <span class="badge bg-warning text-dark ms-1" style="background-color: #ffc107 !important; color: #000 !important;">Only <?= $slots_left ?> slots left!</span>
-                                                <?php else: ?>
-                                                    <span class="badge bg-success ms-1" style="background-color: #28a745 !important;"><?= $slots_left ?> slots available</span>
-                                                <?php endif; ?>
-                                            <?php else: ?>
-                                                Unlimited / Not set
-                                            <?php endif; ?>
+                                            <strong><?= esc($training['training_hours'] ?? 'N/A') ?></strong> hours
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="info-label">Date From:</td>
-                                        <td class="info-value"><?= !empty($training['training_datefrom']) ? date('M j, Y', strtotime($training['training_datefrom'])) : 
-                                              (!empty($training['date_from']) ? date('M j, Y', strtotime($training['date_from'])) : 'N/A') ?></td>
+                                        <td class="info-value">
+                                            <?= !empty($training['training_datefrom']) ? date('M j, Y', strtotime($training['training_datefrom'])) : 'TBA' ?>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td class="info-label">Date To:</td>
-                                        <td class="info-value"><?= !empty($training['training_dateto']) ? date('M j, Y', strtotime($training['training_dateto'])) : 
-                                              (!empty($training['date_to']) ? date('M j, Y', strtotime($training['date_to'])) : 'N/A') ?></td>
+                                        <td class="info-value">
+                                            <?= !empty($training['training_dateto']) ? date('M j, Y', strtotime($training['training_dateto'])) : 'TBA' ?>
+                                        </td>
                                     </tr>
                                 </table>
                             </div>
@@ -277,31 +266,19 @@
                                 <table class="info-table">
                                     <tr>
                                         <td class="info-label">Venue:</td>
-                                        <td class="info-value"><?= esc($training['training_venue'] ?? $training['venue'] ?? 'N/A') ?></td>
+                                        <td class="info-value"><?= esc($training['training_venue'] ?? 'N/A') ?></td>
                                     </tr>
                                     <tr>
                                         <td class="info-label">Facilitator:</td>
-                                        <td class="info-value"><?= esc($training['training_facilitator'] ?? $training['facilitator'] ?? 'N/A') ?></td>
+                                        <td class="info-value"><?= esc($training['training_facilitator'] ?? 'N/A') ?></td>
                                     </tr>
                                     <tr>
                                         <td class="info-label">Status:</td>
                                         <td class="info-value">
-                                            <?php if (isset($training['is_pending']) && $training['is_pending']): ?>
-                                                <span class="badge bg-warning badge-custom">Pending</span>
+                                            <?php if (!empty($training['status_name'])): ?>
+                                                <span class="badge bg-success badge-custom"><?= esc($training['status_name']) ?></span>
                                             <?php else: ?>
-                                                <span class="badge bg-success badge-custom">Approved</span>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="info-label">Certificate:</td>
-                                        <td class="info-value">
-                                            <?php if (!empty($training['training_certificate_file']) || !empty($training['certificate_file'])): ?>
-                                                <a href="<?= base_url('uploads/trainings/certificates/' . esc($training['training_certificate_file'] ?? $training['certificate_file'])) ?>" target="_blank" class="btn btn-sm btn-success">
-                                                    <i class="fas fa-eye"></i> View Certificate
-                                                </a>
-                                            <?php else: ?>
-                                                <span class="badge bg-secondary badge-custom">Not Available</span>
+                                                <span class="badge bg-secondary badge-custom">Available</span>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -309,39 +286,35 @@
                             </div>
                         </div>
                         
-                        <!-- Additional Info Row -->
-                        <div class="row mt-4">
-                            <div class="col-md-6">
-                                <table class="info-table">
-                                    <tr>
-                                        <td class="info-label">Employee:</td>
-                                        <td class="info-value">
-                                            <?php 
-                                            $emp_name = $training['emp_fullname'] ?? $training['employee_name'] ?? '';
-                                            if (empty($emp_name) && !empty($training['emp_idno'])) {
-                                                $emp_name = 'Employee ID: ' . $training['emp_idno'];
-                                            } elseif (empty($emp_name)) {
-                                                $emp_name = 'N/A';
-                                            }
-                                            echo esc($emp_name);
-                                            ?>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                            <div class="col-md-6">
-                                <table class="info-table">
-                                    <tr>
-                                        <td class="info-label">Date Added:</td>
-                                        <td class="info-value"><small class="text-muted"><?= !empty($training['training_added_date']) ? date('M j, Y g:i A', strtotime($training['training_added_date'])) : 
-                                               (!empty($training['added_date']) ? date('M j, Y g:i A', strtotime($training['added_date'])) : 
-                                               (!empty($training['created_at']) ? date('M j, Y g:i A', strtotime($training['created_at'])) : 'N/A')) ?></small>
-                                        </td>
-                                    </tr>
-                                </table>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between">
+                                <a href="<?= site_url('/') ?>" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left"></i> Back to List
+                                </a>
+                                
+                                <?php if(session()->get('logged_in')): ?>
+                                    <?php if(isset($training['is_enrolled']) && $training['is_enrolled']): ?>
+                                        <button class="btn btn-secondary btn-lg" disabled>
+                                            <i class="fas fa-check-circle"></i> Already Joined
+                                        </button>
+                                    <?php else: ?>
+                                        <a href="<?= site_url('trainings/enroll/' . $training['id_training']) ?>" class="btn btn-success btn-lg">
+                                            <i class="fas fa-user-plus"></i> Join Now
+                                        </a>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <a href="<?= site_url('/login') ?>" class="btn btn-success btn-lg">
+                                        <i class="fas fa-sign-in-alt"></i> Login to Join
+                                    </a>
+                                <?php endif; ?>
                             </div>
                         </div>
-                        
                     </div>
                 </div>
                 
@@ -353,7 +326,7 @@
     </div>
     
     <!-- Scripts -->
-    <script src="<?= assets('bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
+    <script src="<?= assets('bootstrap/js/bootstrap.min.js') ?>"></script>
     <script src="<?= assets('js/scripts.js') ?>"></script>
     
 </body>

@@ -81,107 +81,21 @@ $request = \Config\Services::request();
                                 Dashboard
                             </a>
                             
-                            <a class="nav-link <?= $request->uri->getSegment(1)=='myprofile' ? 'active' : ''; ?>" href="<?= site_url('myprofile') ?>" >
-                                <div class="sb-nav-link-icon"><i class="fas fa-user"></i></div>
-                                My Profile 
-                            </a>
-                                
-                            <?php $essp_url = $_SERVER['REMOTE_ADDR']=='::1' ? 'http://localhost/ESSP/index_1.php' : 'https://e-portal.clsu.edu.ph/index_1.php'; ?>
-                            <!--<form action="https://e-portal.clsu.edu.ph/index_1.php" method="post" target="_blank">-->
-                            <form action="<?= $essp_url ?>" method="post" target="_blank">
-                                <input type="hidden" name="to_access" value="profile">
-                                <input type="hidden" name="empid" value="<?= session()->get('portalid'); ?>">
-                                <?php $sessionConfig = config('Session');
-                                $cookieName = $sessionConfig->cookieName; ?>
-                                <input type="hidden" name="sessid" value="<?= $cookieName.':'.session_id(); ?>">
-                                <button class="nav-link " type="submit" style="background: none; border: none;" title="Go to e-Portal v1">
-                                        <div class="sb-nav-link-icon"><i class="fas fa-file"></i></div>
-                                        e-Portal v1
-                                </button>
-                            </form>
-                            
-                            <a class="nav-link <?= $request->uri->getSegment(1)=='executive' ? 'active' : ''; ?>" href="<?= site_url('executive') ?>" >
-                                <div class="sb-nav-link-icon"><i class="fas fa-user"></i></div>
-                                Executive
-                            </a>
-                            
-                            <?php /*
-                            <a class="nav-link <?= $request->uri->getSegment(1)=='portal' ? 'active' : ''; ?>" href="<?= site_url('myprofile') ?>" >
-                                <div class="sb-nav-link-icon"><i class="fas fa-right-to-bracket"></i></div>
-                                All systems
-                            </a>
-                             */ ?>
-                            
-                            <?php if(session()->get('access_level')==1){  ?>
-                                    <div class="sb-sidenav-menu-heading">Admin access</div>
-                                    <a class="nav-link <?= $request->uri->getSegment(1)=='records' ? 'active' : ''; ?>" href="#" data-bs-toggle="collapse" data-bs-target="#collapseLayouts" aria-expanded="true" aria-controls="collapseLayouts">
-                                        <div class="sb-nav-link-icon"><i class="fas fa-columns"></i></div>
-                                        HR Records
-                                        <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
-                                    </a>
-                                        <div class="collapse show" id="collapseLayouts" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordion">
-                                            <nav class="sb-sidenav-menu-nested nav">
-                                                <a class="nav-link <?= $request->uri->getSegment(2)=='employees' || $request->uri->getSegment(1)=='employees' ? 'active' : ''; ?>" href="<?= site_url('employees'); ?>">Employees</a>
-                                            </nav>
-                                        </div>
-                            <?php } ?>
-                            
-                            
-                            
-                            <div class="sb-sidenav-menu-heading">Human Resource</div>
-                                <?php $set_attendance = 0;
-                                if($request->uri->getSegment(1)=='attendance'
-                                        || $request->uri->getSegment(2)=='holidays' || $request->uri->getSegment(1)=='holidays'
-                                        || $request->uri->getSegment(2)=='leaves' || $request->uri->getSegment(1)=='leaves'
-                                        || $request->uri->getSegment(2)=='credits' || $request->uri->getSegment(1)=='credits'
-                                        || $request->uri->getSegment(2)=='dtr' || $request->uri->getSegment(1)=='dtr'
-                                        || $request->uri->getSegment(2)=='travelorders' || $request->uri->getSegment(1)=='travelorders'
-                                        ){
-                                    $set_attendance = 1;
-                                }
-                                ?>
-
-                                <a class="nav-link <?= $set_attendance==1 ? 'active' : ''; ?>" href="#" data-bs-toggle="collapse" data-bs-target="#collapseLayouts" aria-expanded="true" aria-controls="collapseLayouts">
-                                    <div class="sb-nav-link-icon"><i class="fas fa-calendar-days"></i></div>
-                                    Attendance
-                                    <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                            <?php 
+                            // Show "My Trainings" for Employee and Guest, "Trainings" for Admin
+                            $user_type = session()->get('user_type_name');
+                            if (stripos($user_type, 'admin') !== false): 
+                            ?>
+                                <a class="nav-link <?= $request->uri->getSegment(1)=='trainings' ? 'active' : ''; ?>" href="<?= site_url('trainings') ?>">
+                                    <div class="sb-nav-link-icon"><i class="fas fa-graduation-cap"></i></div>
+                                    Trainings
                                 </a>
-                                    <div class="collapse <?= $set_attendance==1 ? 'show' : ''; ?>" id="collapseLayouts" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordion">
-                                        <nav class="sb-sidenav-menu-nested nav">
-                                            <a class="nav-link <?= $request->uri->getSegment(2)=='holidays' || $request->uri->getSegment(1)=='holidays' ? 'active' : ''; ?>" href="<?= site_url('holidays'); ?>">Holidays</a>
-                                            <a class="nav-link <?= $request->uri->getSegment(2)=='travelorders' || $request->uri->getSegment(1)=='travelorders' ? 'active' : ''; ?>" href="<?= site_url('travelorders'); ?>">Travel Order</a>
-                                            <a class="nav-link <?= $request->uri->getSegment(2)=='dtr' || $request->uri->getSegment(1)=='dtr' ? 'active' : ''; ?>" href="<?= site_url('dtr'); ?>">DTR</a>
-                                        </nav>
-                                    </div>
-                            
-                                <a class="nav-link <?= $request->uri->getSegment(1)=='payroll' ? 'active' : ''; ?>" href="<?= site_url('payroll') ?>" >
-                                    <div class="sb-nav-link-icon"><i class="fas fa-user"></i></div>
-                                    Payroll
+                            <?php else: ?>
+                                <a class="nav-link <?= $request->uri->getSegment(1)=='trainings' || $request->uri->getSegment(1)=='mytrainings' ? 'active' : ''; ?>" href="<?= site_url('mytrainings') ?>">
+                                    <div class="sb-nav-link-icon"><i class="fas fa-graduation-cap"></i></div>
+                                    My Trainings
                                 </a>
-                            
-                            
-                            
-                            <div class="sb-sidenav-menu-heading">Research & Extension</div>
-                                <a class="nav-link <?= $request->uri->getSegment(1)=='research' ? 'active' : ''; ?>" href="<?= site_url('research') ?>" >
-                                    <div class="sb-nav-link-icon"><i class="fas fa-user"></i></div>
-                                    RADIIS
-                                </a>
-                            
-                            <div class="sb-sidenav-menu-heading">Service Requests</div>
-                                <a class="nav-link <?= $request->uri->getSegment(1)=='services' ? 'active' : ''; ?>" href="<?= site_url('services') ?>" >
-                                    <div class="sb-nav-link-icon"><i class="fas fa-user"></i></div>
-                                    Services
-                                </a>
-                            
-                            <!--<div class="sb-sidenav-menu-heading">Settings</div>
-                            <a class="nav-link" href="charts.html">
-                                <div class="sb-nav-link-icon"><i class="fas fa-chart-area"></i></div>
-                                Preferences
-                            </a>
-                            <a class="nav-link" href="tables.html">
-                                <div class="sb-nav-link-icon"><i class="fas fa-table"></i></div>
-                                Change Password
-                            </a>-->
+                            <?php endif; ?>
                         </div>
                     </div>
                     <div class="sb-sidenav-footer">

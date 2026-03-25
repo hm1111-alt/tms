@@ -11,17 +11,18 @@ class Mdl_Login extends Model
         
         function __construct(){
                 $this->db = Database::connect(); // default
-                // Connect to another database
+                // Connect to other databases
                 $this->db_hrmis = Database::connect('hrmis');
+                $this->db_employee = Database::connect('db_employee');
         }
         
         
         function login_validation()
         {
                 $this->request = \Config\Services::request();
-                $query = $this->db->query("SELECT userid,password,user_email
+                $query = $this->db->query("SELECT userid,password,user_email,user_type_id
                                             FROM users
-                                            LEFT JOIN user_types ON id_user_type=user_type_id
+                                            LEFT JOIN user_types ON users.user_type_id = user_types.id
                                             WHERE binary username ='" . esc($this->request->getPost('username')) . "' 
                                                 OR user_email ='" . $this->request->getPost('username') . "' 
                                                  ");
@@ -30,27 +31,79 @@ class Mdl_Login extends Model
         
         function get_user_details($userid)
         {
+                // First, get basic user info and user type
                 $query = $this->db->query("SELECT is_active,userid,username,password_expired,employee_idno,user_email,
                                                 user_type_id,register_verified,first_login, password_reset,reset_link,
                                                 access_id,hrmis_access,
-                                                level_id, id_employee, emp_idno, emp_fname, emp_lname, emp_mi, emp_extname,emp_nickname,
-                                                profile_picture,profile_picture_icon,profile_picture_loc, emp_position_name position_name, emp_class_name,
-                                                emp_is_active, register_verified, user_email,
-                                                user_type_id, user_type_name, 
-                                                emp_office,emp_division,emp_unit
+                                                user_type_id, user_types.users as user_type_name
                                             FROM users
-                                            LEFT JOIN user_types ON id_user_type=user_type_id
-                                            LEFT JOIN employees ON employees.emp_idno=employee_idno
+                                            LEFT JOIN user_types ON users.user_type_id = user_types.id
                                             WHERE userid =" . $userid . " ");
-		$result = $query->getResult();
+                $result = $query->getResult();
                 
-		$query2 = $this->db_hrmis->query("SELECT esign_file_name,esign_location
-                                            FROM employees_esign 
-                                            WHERE employee_id =" . @$result[0]->id_employee . "
-                                            ");
-                $result2 = $query2->getResult();
-                $result[0]->esign_file_name = @$result2[0]->esign_file_name;
-                $result[0]->esign_location = @$result2[0]->esign_location;
+                if(empty($result)) {
+                    return [];
+                }
+                
+                // Initialize employee fields as null
+                $result[0]->emp_idno = null;
+                $result[0]->emp_fname = null;
+                $result[0]->emp_lname = null;
+                $result[0]->emp_mi = null;
+                $result[0]->emp_extname = null;
+                $result[0]->emp_nickname = null;
+                $result[0]->profile_picture = null;
+                $result[0]->profile_picture_icon = null;
+                $result[0]->profile_picture_loc = null;
+                $result[0]->emp_position_name = null;
+                $result[0]->emp_class_name = null;
+                $result[0]->emp_is_active = null;
+                $result[0]->emp_office = null;
+                $result[0]->emp_division = null;
+                $result[0]->emp_unit = null;
+                $result[0]->esign_file_name = null;
+                $result[0]->esign_location = null;
+                
+                // If user has employee_idno, try to get employee data from db_employee
+                if(!empty($result[0]->employee_idno)) {
+                    // Try to get employee info from db_employee database
+                    try {
+                        $query_emp = $this->db_employee->query("SELECT emp_idno, emp_fname, emp_lname, emp_mi, emp_extname, emp_nickname,
+                                                                        emp_position_name, emp_class_name, emp_is_active, emp_office, emp_division, emp_unit
+                                                                    FROM employees
+                                                                    WHERE emp_idno = '" . $result[0]->employee_idno . "'");
+                        $emp_result = $query_emp->getResult();
+                        
+                        if(!empty($emp_result)) {
+                            $result[0]->emp_idno = $emp_result[0]->emp_idno;
+                            $result[0]->emp_fname = $emp_result[0]->emp_fname;
+                            $result[0]->emp_lname = $emp_result[0]->emp_lname;
+                            $result[0]->emp_mi = $emp_result[0]->emp_mi;
+                            $result[0]->emp_extname = $emp_result[0]->emp_extname;
+                            $result[0]->emp_nickname = $emp_result[0]->emp_nickname;
+                            $result[0]->emp_position_name = $emp_result[0]->emp_position_name;
+                            $result[0]->emp_class_name = $emp_result[0]->emp_class_name;
+                            $result[0]->emp_is_active = $emp_result[0]->emp_is_active;
+                            $result[0]->emp_office = $emp_result[0]->emp_office;
+                            $result[0]->emp_division = $emp_result[0]->emp_division;
+                            $result[0]->emp_unit = $emp_result[0]->emp_unit;
+                            
+                            // Get e-signature if exists
+                            $query2 = $this->db_hrmis->query("SELECT esign_file_name,esign_location
+                                                                FROM employees_esign 
+                                                                WHERE employee_id =" . $result[0]->id_employee . "
+                                                                ");
+                            $result2 = $query2->getResult();
+                            if(!empty($result2)) {
+                                $result[0]->esign_file_name = $result2[0]->esign_file_name;
+                                $result[0]->esign_location = $result2[0]->esign_location;
+                            }
+                        }
+                    } catch(\Exception $e) {
+                        // Employee table or database doesn't exist, continue with null values
+                        log_message('error', 'Employee data not found: ' . $e->getMessage());
+                    }
+                }
                 
                 return $result;
         }
@@ -152,14 +205,18 @@ class Mdl_Login extends Model
                     ->update($data);
                          
                 if($res){
-                    $data2 = array(
-                        'logs_date'=>date('Y-m-d H:i:s'),
-                        'logs_user'=> @$user[0]->userid,
-                        'logs_action'=>'FORGOT PASSWORD',
-                        'logs_ip_address'=>$_SERVER['REMOTE_ADDR'],
-                        'logs_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR'])
-                    );
-                    $this->db->table('logs')->insert($data2);
+                    try {
+                        $data2 = array(
+                            'logs_date'=>date('Y-m-d H:i:s'),
+                            'logs_user'=> @$user[0]->userid,
+                            'logs_action'=>'FORGOT PASSWORD',
+                            'logs_ip_address'=>$_SERVER['REMOTE_ADDR'],
+                            'logs_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                        );
+                        $this->db->table('logs')->insert($data2);
+                    } catch(\Exception $e) {
+                        log_message('error', 'Failed to insert log: ' . $e->getMessage());
+                    }
                     
                     return @$user[0]->userid;
                 } else {
@@ -176,14 +233,18 @@ class Mdl_Login extends Model
                     ->where('userid', session()->get('userid')) 
                     ->update($data);
                                     
-                $data2 = array(
-                    'logs_date'=>date('Y-m-d H:i:s'),
-                    'logs_user'=>session()->get('userid'),
-                    'logs_action'=>'LOGIN',
-                    'logs_ip_address'=>$_SERVER['REMOTE_ADDR'],
-                    'logs_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR'])
-                );
-                $this->db->table('logs')->insert($data2);
+                try {
+                    $data2 = array(
+                        'logs_date'=>date('Y-m-d H:i:s'),
+                        'logs_user'=>session()->get('userid'),
+                        'logs_action'=>'LOGIN',
+                        'logs_ip_address'=>$_SERVER['REMOTE_ADDR'],
+                        'logs_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                    );
+                    $this->db->table('logs')->insert($data2);
+                } catch(\Exception $e) {
+                    log_message('error', 'Failed to insert login log: ' . $e->getMessage());
+                }
         }
 	
 	function userid_login_attempt()
@@ -202,26 +263,34 @@ class Mdl_Login extends Model
         
         function save_login_attempt($userid)
         {
-                $data2 = array(
-                    'logs_date'=>date('Y-m-d H:i:s'),
-                    'logs_user'=>$userid,
-                    'logs_action'=>'LOGIN ATTEMPT',
-                    'logs_ip_address'=>$_SERVER['REMOTE_ADDR'],
-                    'logs_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR'])
-                );
-                $this->db->table('logs')->insert($data2);
+                try {
+                    $data2 = array(
+                        'logs_date'=>date('Y-m-d H:i:s'),
+                        'logs_user'=>$userid,
+                        'logs_action'=>'LOGIN ATTEMPT',
+                        'logs_ip_address'=>$_SERVER['REMOTE_ADDR'],
+                        'logs_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                    );
+                    $this->db->table('logs')->insert($data2);
+                } catch(\Exception $e) {
+                    log_message('error', 'Failed to insert login attempt log: ' . $e->getMessage());
+                }
         }
         
         function save_logout()
         {
-                $data2 = array(
-                    'logs_date'=>date('Y-m-d H:i:s'),
-                    'logs_user'=>session()->get('userid'),
-                    'logs_action'=>'LOGOUT',
-                    'logs_ip_address'=>$_SERVER['REMOTE_ADDR'],
-                    'logs_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR'])
-                );
-                $this->db->table('logs')->insert($data2);
+                try {
+                    $data2 = array(
+                        'logs_date'=>date('Y-m-d H:i:s'),
+                        'logs_user'=>session()->get('userid'),
+                        'logs_action'=>'LOGOUT',
+                        'logs_ip_address'=>$_SERVER['REMOTE_ADDR'],
+                        'logs_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                    );
+                    $this->db->table('logs')->insert($data2);
+                } catch(\Exception $e) {
+                    log_message('error', 'Failed to insert logout log: ' . $e->getMessage());
+                }
                 
                 $this->db->table('ci_sessions')->where('id', session_id())->delete();
         }
@@ -265,13 +334,18 @@ class Mdl_Login extends Model
 	function check_employee_valid()
 	{
                 $this->request = \Config\Services::request();
-		$query = $this->db_hrmis->query("SELECT emp_idno,emp_fname,emp_lname,emp_mi,emp_extname,emp_is_active 
-                                            FROM employees 
-                                            WHERE emp_idno ='" . esc($this->request->getPost('employee_idno')) . "'
-                                                AND emp_fname ='" . esc($this->request->getPost('employee_fname')) . "'
-                                                AND emp_lname ='" . esc($this->request->getPost('employee_lname')) . "'
-                                            ");
-		return $query->getResult() ? $query->getResult() : false;
+                try {
+                    $query = $this->db_employee->query("SELECT emp_idno,emp_fname,emp_lname,emp_mi,emp_extname,emp_is_active 
+                                                        FROM employees 
+                                                        WHERE emp_idno ='" . esc($this->request->getPost('employee_idno')) . "'
+                                                            AND emp_fname ='" . esc($this->request->getPost('employee_fname')) . "'
+                                                            AND emp_lname ='" . esc($this->request->getPost('employee_lname')) . "'
+                                                        ");
+                    return $query->getResult() ? $query->getResult() : false;
+                } catch(\Exception $e) {
+                    log_message('error', 'Employee validation failed: ' . $e->getMessage());
+                    return false;
+                }
 	}
         
         
@@ -373,16 +447,18 @@ class Mdl_Login extends Model
 	{
                 $this->request = \Config\Services::request();
                 
-                $this->db_hrmis = Database::connect('hrmis');
-		$query = $this->db_hrmis->query("SELECT id_employee,emp_idno,emp_fname,emp_lname,emp_mi,emp_extname, emp_fullname,emp_fullname2,emp_sex,emp_prefix,
-                                                emp_email_official, emp_email_personal, emp_status2,emp_class,class_name,
-                                                emp_is_active, position_name,position_abbr 
-                                            FROM employees 
-                                            LEFT JOIN lib_positions ON emp_position=id_position
-                                            LEFT JOIN lib_class ON emp_class=id_class
-                                            WHERE emp_idno ='" . $emp_idno . "'
-                                            ");
-		$result = $query->getResult();
+                try {
+                    // Use db_employee instead of db_hrmis
+                    $this->db_employee = Database::connect('db_employee');
+                    $query = $this->db_employee->query("SELECT id_employee,emp_idno,emp_fname,emp_lname,emp_mi,emp_extname, emp_fullname,emp_fullname2,emp_sex,emp_prefix,
+                                                            emp_email_official, emp_email_personal, emp_status2,emp_class,class_name,
+                                                            emp_is_active, position_name,position_abbr 
+                                                        FROM employees 
+                                                        LEFT JOIN lib_positions ON emp_position=id_position
+                                                        LEFT JOIN lib_class ON emp_class=id_class
+                                                        WHERE emp_idno ='" . $emp_idno . "'
+                                                        ");
+                    $result = $query->getResult();
                 
                 
                 $refno = $this->set_register_refno();
@@ -441,10 +517,15 @@ class Mdl_Login extends Model
                         'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
                         'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
                     );
-                    $this->db_hrmis->table('history')->insert($his_data);
+                    $this->db->table('history')->insert($his_data);
                     
                     return @$res2==true ? $refno : false;
                     
+                }
+                
+                } catch(\Exception $e) {
+                    log_message('error', 'Registration failed: ' . $e->getMessage());
+                    return false;
                 }
                     
 	}
@@ -498,6 +579,73 @@ class Mdl_Login extends Model
         }
         
     //-----account--registration--end
+        
+        /**
+         * Save guest registration
+         */
+        function save_guest_registration()
+        {
+            $this->request = \Config\Services::request();
+            
+            try {
+                $refno = $this->set_register_refno();
+                
+                // Check if email already exists
+                $query = $this->db->query("SELECT userid FROM users WHERE user_email = '" . esc($this->request->getPost('email_address')) . "'");
+                $exist = $query->getResult();
+                
+                if($exist) {
+                    return false; // Email already registered
+                }
+                
+                // Create guest user account
+                $user_data = array(
+                    'username' => 'guest_' . time(), // Unique username
+                    'password' => password_hash($this->request->getPost('password'), PASSWORD_BCRYPT),
+                    'employee_idno' => null, // Guests don't have employee ID
+                    'user_email' => esc($this->request->getPost('email_address')),
+                    'user_type_id' => 3, // Guest user type
+                    'date_created' => date('Y-m-d H:i:s'),
+                    'is_active' => 1, // Active immediately
+                    'register_refno' => $refno,
+                    'register_verified' => 1, // Verified immediately
+                    'first_login' => 1,
+                );
+                
+                $res = $this->db->table('users')->insert($user_data);
+                
+                if($res) {
+                    $his_data = array(
+                        'history_date'=>date('Y-m-d H:i:s'),
+                        'history_name'=>'Guest User',
+                        'history_category'=>'ACCOUNT',
+                        'history_action'=> 'Guest Registration',
+                        'history_remarks'=> $this->request->getPost('fname').' '.$this->request->getPost('lname').' - '.$this->request->getPost('email_address').' refno - '.$refno,
+                        'history_user'=> null,
+                        'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
+                        'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
+                    );
+                    $this->db->table('history')->insert($his_data);
+                    
+                    return $this->db->insertID(); // Return the new user ID
+                }
+                
+                return false;
+                
+            } catch(\Exception $e) {
+                log_message('error', 'Guest registration failed: ' . $e->getMessage());
+                return false;
+            }
+        }
+        
+        /**
+         * Check if email already exists
+         */
+        function check_email_exists($email)
+        {
+            $query = $this->db->query("SELECT userid FROM users WHERE user_email = '" . esc($email) . "'");
+            return $query->getResult();
+        }
         
 }
 
