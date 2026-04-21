@@ -48,44 +48,69 @@
                                         <!-- Toggle Button -->
                                         <div class="mb-4">
                                             <button type="button" id="toggleRegistrationBtn" class="btn btn-outline-primary" onclick="toggleRegistration()">
-                                                <i class="fas fa-user-circle me-2"></i><span id="toggleBtnText">Register as Guest</span>
+                                                <i class="fas fa-user-tie me-2"></i><span id="toggleBtnText">Register as Guest</span>
                                             </button>
                                         </div>
                                         
                                         <!-- Employee Registration Form -->
                                         <form method="post" role="form" name="employee_registration_form" action="<?php echo $request->getUri()->getPath(); ?>" id="employeeForm">
-                                            <div class="alert alert-info">
-                                                <i class="fas fa-info-circle me-2"></i>
-                                                <strong>Employee Registration:</strong> Use your official Employee ID from CLSU database.
-                                            </div>
+                                            <input type="hidden" name="registration_type" value="employee" />
                                             
                                             <div class="form-floating mb-3">
                                                 <?php if (@$validation && $validation->hasError('employee_idno')){ ?>
                                                     <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_idno'); ?></label></span>
                                                 <?php } ?>
-                                                <input type="text" name="employee_idno" class="form-control" id="inputIdno" placeholder="ID no." value="<?= set_value('employee_idno') ?>" required />
+                                                <input type="text" name="employee_idno" class="form-control" id="inputIdno" placeholder="Employee ID" value="<?= set_value('employee_idno') ?>" required />
                                                 <label for="inputIdno" style="<?php echo (@$validation && $validation->hasError('employee_idno')) ? 'margin-top: 30px;' : ''; ?>">
                                                     Employee ID no. <span class="text-danger">*</span>
                                                 </label>
                                             </div>
+                                            
                                             <div class="form-floating mb-3">
                                                 <?php if (@$validation && $validation->hasError('employee_fname')){ ?>
                                                     <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_fname'); ?></label></span>
                                                 <?php } ?>
-                                                <input type="text" name="employee_fname" class="form-control" id="inputfname" placeholder="First Name" value="<?= set_value('employee_fname') ?>" required />
-                                                <label for="inputfname" style="<?php echo (@$validation && $validation->hasError('employee_fname')) ? 'margin-top: 30px;' : ''; ?>">
+                                                <input type="text" name="employee_fname" class="form-control" id="inputFname" placeholder="First Name" value="<?= set_value('employee_fname') ?>" required />
+                                                <label for="inputFname" style="<?php echo (@$validation && $validation->hasError('employee_fname')) ? 'margin-top: 30px;' : ''; ?>">
                                                     First Name <span class="text-danger">*</span>
                                                 </label>
                                             </div>
+                                            
                                             <div class="form-floating mb-3">
                                                 <?php if (@$validation && $validation->hasError('employee_lname')){ ?>
                                                     <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_lname'); ?></label></span>
                                                 <?php } ?>
-                                                <input type="text" name="employee_lname" class="form-control" id="inputlname" placeholder="Last Name" value="<?= set_value('employee_lname') ?>" required />
-                                                <label for="inputlname" style="<?php echo (@$validation && $validation->hasError('employee_lname')) ? 'margin-top: 30px;' : ''; ?>">
+                                                <input type="text" name="employee_lname" class="form-control" id="inputLname" placeholder="Last Name" value="<?= set_value('employee_lname') ?>" required />
+                                                <label for="inputLname" style="<?php echo (@$validation && $validation->hasError('employee_lname')) ? 'margin-top: 30px;' : ''; ?>">
                                                     Last Name <span class="text-danger">*</span>
                                                 </label>
                                             </div>
+                                            
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-floating mb-3">
+                                                        <?php if (@$validation && $validation->hasError('employee_mi')){ ?>
+                                                            <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_mi'); ?></label></span>
+                                                        <?php } ?>
+                                                        <input type="text" name="employee_mi" class="form-control" id="inputMi" placeholder="Middle Initial" value="<?= set_value('employee_mi') ?>" maxlength="2" />
+                                                        <label for="inputMi" style="<?php echo (@$validation && $validation->hasError('employee_mi')) ? 'margin-top: 30px;' : ''; ?>">
+                                                            Middle Initial <span class="text-muted">(Optional)</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-floating mb-3">
+                                                        <?php if (@$validation && $validation->hasError('employee_extname')){ ?>
+                                                            <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('employee_extname'); ?></label></span>
+                                                        <?php } ?>
+                                                        <input type="text" name="employee_extname" class="form-control" id="inputExtname" placeholder="Extension Name" value="<?= set_value('employee_extname') ?>" />
+                                                        <label for="inputExtname" style="<?php echo (@$validation && $validation->hasError('employee_extname')) ? 'margin-top: 30px;' : ''; ?>">
+                                                            Extension Name <span class="text-muted">(Optional)</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
                                             <div class="form-floating mb-3">
                                                 <?php if (@$validation && $validation->hasError('email_address')){ ?>
                                                     <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('email_address'); ?></label></span>
@@ -109,8 +134,8 @@
                                                         <?php if(@$pass_error!=''){ ?><label class="control-label"><?= @$pass_error; ?></label><?php } ?>
                                                     </span>
                                                 <?php } ?>
-                                                <input type="password" name="password" class="form-control" id="inputpassword" value="<?= set_value('password') ?>" required placeholder="Password" />
-                                                <label for="inputpassword" style="<?php echo ((@$validation && $validation->hasError('password')) || @$pass_error!='' ) ? 'margin-top: 30px;' : ''; ?>">
+                                                <input type="password" name="password" class="form-control" id="inputPassword" value="<?= set_value('password') ?>" required placeholder="Password" />
+                                                <label for="inputPassword" style="<?php echo ((@$validation && $validation->hasError('password')) || @$pass_error!='' ) ? 'margin-top: 30px;' : ''; ?>">
                                                     Password <span class="text-danger">*</span>
                                                 </label>
                                             </div>
@@ -118,8 +143,8 @@
                                                 <?php if (@$validation && $validation->hasError('password_confirm')){ ?>
                                                     <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('password_confirm'); ?></label></span>
                                                 <?php } ?>
-                                                <input type="password" name="password_confirm" class="form-control" id="input_confirm" value="<?= set_value('password_confirm') ?>" required placeholder="Password" />
-                                                <label for="input_confirm" style="<?php echo (@$validation && $validation->hasError('password_confirm')) ? 'margin-top: 30px;' : ''; ?>">
+                                                <input type="password" name="password_confirm" class="form-control" id="inputConfirm" value="<?= set_value('password_confirm') ?>" required placeholder="Password" />
+                                                <label for="inputConfirm" style="<?php echo (@$validation && $validation->hasError('password_confirm')) ? 'margin-top: 30px;' : ''; ?>">
                                                     Confirm Password <span class="text-danger">*</span>
                                                 </label>
                                             </div>
@@ -146,11 +171,6 @@
                                         <form method="post" role="form" name="guest_registration_form" action="<?php echo $request->getUri()->getPath(); ?>" id="guestForm" style="display: none;">
                                             <input type="hidden" name="registration_type" value="guest" />
                                             
-                                            <div class="alert alert-info">
-                                                <i class="fas fa-info-circle me-2"></i>
-                                                <strong>Guest Registration:</strong> Create an account without an Employee ID. You can still browse and join trainings!
-                                            </div>
-                                            
                                             <div class="form-floating mb-3">
                                                 <?php if (@$validation && $validation->hasError('guest_fname')){ ?>
                                                     <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('guest_fname'); ?></label></span>
@@ -169,6 +189,32 @@
                                                     Last Name <span class="text-danger">*</span>
                                                 </label>
                                             </div>
+                                            
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-floating mb-3">
+                                                        <?php if (@$validation && $validation->hasError('guest_mi')){ ?>
+                                                            <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('guest_mi'); ?></label></span>
+                                                        <?php } ?>
+                                                        <input type="text" name="guest_mi" class="form-control" id="inputGuestMi" placeholder="Middle Initial" value="<?= set_value('guest_mi') ?>" maxlength="2" />
+                                                        <label for="inputGuestMi" style="<?php echo (@$validation && $validation->hasError('guest_mi')) ? 'margin-top: 30px;' : ''; ?>">
+                                                            Middle Initial <span class="text-muted">(Optional)</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-floating mb-3">
+                                                        <?php if (@$validation && $validation->hasError('guest_extname')){ ?>
+                                                            <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('guest_extname'); ?></label></span>
+                                                        <?php } ?>
+                                                        <input type="text" name="guest_extname" class="form-control" id="inputGuestExtname" placeholder="Extension Name" value="<?= set_value('guest_extname') ?>" />
+                                                        <label for="inputGuestExtname" style="<?php echo (@$validation && $validation->hasError('guest_extname')) ? 'margin-top: 30px;' : ''; ?>">
+                                                            Extension Name <span class="text-muted">(Optional)</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
                                             <div class="form-floating mb-3">
                                                 <?php if (@$validation && $validation->hasError('guest_email')){ ?>
                                                     <span class="error-message mb-3"><i class="fas fa-triangle-exclamation"></i> <label class="control-label"><?= $validation->getError('guest_email'); ?></label></span>
@@ -224,7 +270,6 @@
                                                 </a>
                                             </div>
                                         </form>
-                                    </div>
                                     <div class="card-footer text-center py-3">
                                         <div class="small mb-2"><a href="mailto:miso@clsu.edu.ph" class="text-success">Need help? Contact CLSU-HRMO.</a></div>
                                         
@@ -276,8 +321,7 @@
                     // Toggle required attributes
                     employeeForm.querySelectorAll('[required]').forEach(input => input.removeAttribute('required'));
                     guestForm.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]').forEach(input => {
-                        if (!input.hasAttribute('data-was-required')) {
-                            input.setAttribute('data-was-required', 'true');
+                        if (input.name !== 'registration_type' && input.name !== 'guest_mi' && input.name !== 'guest_extname') {
                             input.setAttribute('required', 'required');
                         }
                     });
@@ -290,7 +334,7 @@
                     // Toggle required attributes
                     guestForm.querySelectorAll('[required]').forEach(input => input.removeAttribute('required'));
                     employeeForm.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]').forEach(input => {
-                        if (!input.hasAttribute('data-was-required')) {
+                        if (input.name !== 'registration_type' && input.name !== 'employee_mi' && input.name !== 'employee_extname') {
                             input.setAttribute('required', 'required');
                         }
                     });

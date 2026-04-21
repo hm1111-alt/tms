@@ -17,6 +17,10 @@
         <link href="<?= css('styles.css') ?>" rel="stylesheet">
         <script src="<?= assets('fontawesome/all.js') ?>" crossorigin="anonymous"></script>
         
+        <!-- SweetAlert2 -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        
         <style>
             body {
                 background-color: #f8f9fa;
@@ -65,6 +69,7 @@
             
             .status-upcoming { background-color: #36b9cc; color: white; }
             .status-open { background-color: #1cc88a; color: white; }
+            .status-ongoing { background-color: #f6c23e; color: white; }
             .status-closed { background-color: #858796; color: white; }
             .status-completed { background-color: #4e73df; color: white; }
             
@@ -96,6 +101,7 @@
                         <h1 class="mt-4 mb-3">
                             Available Trainings
                         </h1>
+                        <!-- DEBUG: total=<?= $total_trainings ?? 'X' ?>, count=<?= count($trainings ?? []) ?> -->
                         <ol class="breadcrumb mb-3">
                             <li class="breadcrumb-item active">
                                 Training Management System
@@ -104,10 +110,14 @@
                     </div>
                     <div class="col-xl-4">
                         <div class="text-end mt-4">
-                            <div class="bg-white p-3 rounded shadow-sm d-inline-block">
-                                <h2 class="h4 mb-1 text-success fw-bold"><?= $total_trainings ?></h2>
-                                <small class="text-muted">Total Trainings Available</small>
-                            </div>
+                            <ul class="page_title_button" style="list-style: none; margin: 0;">
+                                <li>
+                                    <a href="<?= site_url('dashboard') ?>" class="btn btn-light">
+                                        <i class="fas fa-arrow-circle-left"></i>
+                                        <div class="text-muted">Back to Dashboard</div>
+                                    </a>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -156,10 +166,24 @@
                         </label>
                         <select class="form-select" id="filterStatus">
                             <option value="">All Statuses</option>
-                            <option value="Upcoming">Upcoming</option>
-                            <option value="Open">Open</option>
-                            <option value="Closed">Closed</option>
-                            <option value="Completed">Completed</option>
+                            <?php 
+                                if(!empty($trainings)):
+                                    $statuses = array_unique(array_column($trainings, 'status_name'));
+                                    sort($statuses);
+                                    foreach($statuses as $status):
+                                        if($status):
+                            ?>
+                                <option value="<?= esc($status) ?>"><?= esc($status) ?></option>
+                            <?php 
+                                        endif;
+                                    endforeach; 
+                                else:
+                            ?>
+                                <option value="Upcoming">Upcoming</option>
+                                <option value="Open">Open</option>
+                                <option value="Closed">Closed</option>
+                                <option value="Completed">Completed</option>
+                            <?php endif; ?>
                         </select>
                     </div>
                     
@@ -198,20 +222,19 @@
                              data-category="<?= esc($training['training_category_name'] ?? '') ?>"
                              data-status="<?= esc($training['status_name'] ?? '') ?>"
                              data-name="<?= esc(strtolower($training['training_name'])) ?>"
-                             data-facilitator="<?= esc(strtolower($training['facilitator'] ?? '')) ?>"
-                             data-venue="<?= esc(strtolower($training['venue'] ?? '')) ?>">
-                            <div class="card-header d-flex justify-content-between align-items-center" style="background-color: #f8f9fc;">
-                                <span class="category-badge">
-                                    <i class="fas fa-tag"></i> <?= esc($training['training_category_name'] ?? 'Uncategorized') ?>
-                                </span>
-                                <span class="status-badge status-<?= strtolower($training['status_name'] ?? 'pending') ?>">
-                                    <?= esc($training['status_name'] ?? 'Pending') ?>
-                                </span>
-                            </div>
-                            
+                             data-facilitator="<?= esc(strtolower($training['training_facilitator'] ?? '')) ?>"
+                             data-venue="<?= esc(strtolower($training['training_venue'] ?? '')) ?>">
                             <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="category-badge">
+                                        <i class="fas fa-tag"></i> <?= esc($training['training_category_name'] ?? 'Uncategorized') ?>
+                                    </span>
+                                    <span class="status-badge status-<?= strtolower($training['status_name'] ?? 'pending') ?>">
+                                        <?= esc($training['status_name'] ?? 'Pending') ?>
+                                    </span>
+                                </div>
+                                
                                 <h5 class="card-title text-primary mb-3">
-                                    <i class="fas fa-graduation-cap"></i> 
                                     <?= esc($training['training_name']) ?>
                                 </h5>
                                 
@@ -235,21 +258,30 @@
                                 <div class="mb-2">
                                     <small class="text-muted">
                                         <i class="fas fa-clock"></i> 
-                                        <strong>Duration:</strong> <?= esc($training['training_hours'] ?? 'N/A') ?> hours
+                                        <strong>Duration:</strong> <?= esc($training['training_hours'] ?? 'N/A') ?> hours 
+                                        <?php 
+                                            $date_from = !empty($training['training_datefrom']) ? date('M d, Y', strtotime($training['training_datefrom'])) : '';
+                                            $date_to = !empty($training['training_dateto']) ? date('M d, Y', strtotime($training['training_dateto'])) : '';
+                                            if ($date_from && $date_to && $date_from !== $date_to): 
+                                        ?>
+                                            (<?= $date_from ?> - <?= $date_to ?>)
+                                        <?php elseif ($date_from): ?>
+                                            (<?= $date_from ?>)
+                                        <?php endif; ?>
                                     </small>
                                 </div>
                                 
                                 <div class="mb-2">
                                     <small class="text-muted">
                                         <i class="fas fa-map-marker-alt"></i> 
-                                        <strong>Venue:</strong> <?= esc($training['venue'] ?? 'TBA') ?>
+                                        <strong>Venue:</strong> <?= esc($training['training_venue'] ?? 'TBA') ?>
                                     </small>
                                 </div>
                                 
                                 <div class="mb-3">
                                     <small class="text-muted">
                                         <i class="fas fa-chalkboard-teacher"></i> 
-                                        <strong>Facilitator:</strong> <?= esc($training['facilitator'] ?? 'TBA') ?>
+                                        <strong>Facilitator:</strong> <?= esc($training['training_facilitator'] ?? 'TBA') ?>
                                     </small>
                                 </div>
                                 
@@ -269,17 +301,43 @@
                                         <button class="btn btn-sm btn-secondary" disabled>
                                             <i class="fas fa-check-circle"></i> Already Joined
                                         </button>
+                                    <?php elseif(isset($training['has_attended']) && $training['has_attended']): ?>
+                                        <button class="btn btn-sm btn-secondary" disabled>
+                                            <i class="fas fa-check-circle"></i> Already Attended
+                                        </button>
                                     <?php else: ?>
-                                        <a href="<?= site_url('trainings/enroll/' . $training['id_training']) ?>" class="btn btn-sm btn-success">
+                                        <?php 
+                                        $status_name = strtolower($training['status_name'] ?? '');
+                                        $is_ongoing = isset($training['is_ongoing']) && $training['is_ongoing'];
+                                        $is_open = ($status_name === 'open');
+                                        
+                                        // Check slot availability
+                                        $max_capacity = $training['max_no_of_attendees'] ?? 0;
+                                        $current_attendees = $training['no_of_attendees'] ?? 0;
+                                        $no_slots = ($max_capacity > 0 && $current_attendees >= $max_capacity);
+                                        
+                                        $is_disabled = !$is_open || $is_ongoing || $no_slots;
+                                        ?>
+                                        <button class="btn btn-sm <?= $is_disabled ? 'btn-secondary disabled' : 'btn-success join-training-btn' ?>" 
+                                                data-training-id="<?= $training['id_training'] ?>"
+                                                data-training-name="<?= esc($training['training_name']) ?>"
+                                                <?= $is_disabled ? 'disabled' : '' ?>
+                                                title="<?= !$is_open ? 'Registration not yet open' : ($is_ongoing ? 'Training is ongoing' : ($no_slots ? 'No slots available' : '')) ?>">
                                             <i class="fas fa-user-plus"></i> Join Now
-                                        </a>
+                                        </button>
                                     <?php endif; ?>
                                     <a href="<?= site_url('trainings/view/' . $training['id_training']) ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i> View Details
                                     </a>
                                 <?php else: ?>
-                                    <a href="<?= site_url('/login') ?>" class="btn btn-sm btn-success">
-                                        <i class="fas fa-sign-in-alt"></i> Login to Enroll
+                                    <?php 
+                                    $status_name = strtolower($training['status_name'] ?? '');
+                                    $is_open = ($status_name === 'open');
+                                    $is_ongoing = isset($training['is_ongoing']) && $training['is_ongoing'];
+                                    $is_disabled = !$is_open || $is_ongoing;
+                                    ?>
+                                    <a href="<?= site_url('/login') ?>" class="btn btn-sm <?= $is_disabled ? 'btn-secondary disabled' : 'btn-success' ?>" <?= $is_disabled ? 'disabled tabindex="-1" aria-disabled="true"' : '' ?>>
+                                        <i class="fas fa-sign-in-alt"></i> Login to Join
                                     </a>
                                     <a href="<?= site_url('trainings/view/' . $training['id_training']) ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-info-circle"></i> View Details
@@ -294,22 +352,6 @@
     </div>
             </main>
         </div>
-        
-    <footer class="py-4 bg-light mt-auto">
-        <div class="container-fluid px-4">
-            <div class="d-flex align-items-center justify-content-between small">
-                <div class="text-muted">
-                    &copy; <?= date('Y') ?> CLSU. All rights reserved.
-                    <br>Powered by <span class="text-success">Management Information System Office (CLSU-MISO)</span>.
-                </div>
-                <!--<div>
-                    <a href="#">Privacy Policy</a>
-                    &middot;
-                    <a href="#">Terms &amp; Conditions</a>
-                </div>-->
-            </div>
-        </div>
-    </footer>
 
 <script>
     $(document).ready(function() {
@@ -369,6 +411,40 @@
             $('#searchInput').val('');
             filterTrainings();
         };
+        
+        // Join training button with confirmation
+        $(document).on('click', '.join-training-btn', function() {
+            const btn = $(this);
+            const trainingId = btn.data('training-id');
+            const trainingName = btn.data('training-name');
+            
+            // Show confirmation dialog
+            Swal.fire({
+                title: 'Join Training?',
+                html: `<p>Are you sure you want to join <strong>${trainingName}</strong>?</p>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="fas fa-check"></i> Yes, Join Now!',
+                cancelButtonText: '<i class="fas fa-times"></i> Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading
+                    Swal.fire({
+                        title: 'Processing...',
+                        text: 'Enrolling you in the training...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    // Redirect to enroll endpoint
+                    window.location.href = '<?= site_url('trainings/register/') ?>' + trainingId;
+                }
+            });
+        });
     });
 </script>
 

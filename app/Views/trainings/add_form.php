@@ -29,10 +29,14 @@
             margin-bottom: 1.5rem;
         }
         
+        .header-card {
+            margin-top: 5rem !important;
+        }
+        
         .form-section-title {
             font-size: 1.1rem;
             font-weight: 600;
-            color: #4e73df;
+            color: #198754;
             margin-bottom: 1rem;
             border-bottom: 2px solid #e3e6f0;
             padding-bottom: 0.5rem;
@@ -59,36 +63,30 @@
     
     <?= $this->include('layout/navbar_admin') ?>
     
-    <div id="layoutSidenav">
+    <div id="layoutSidenav_content">
         
-        <?= $this->include('layout/sidebar') ?>
-        
-        <div id="layoutSidenav_content">
-            
-            <div class="container-fluid px-4">
+        <div class="container-fluid px-4">
                 
-                <div class="row mt-4 mb-4" style="background-color: white; border-radius: 0.375rem; margin:1rem 0 1rem 0; padding: 1.5rem;">
-                    <div class="col-12">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h1 class="mt-2 mb-3">
-                                    <i class="fas fa-plus-circle"></i> Create Training
-                                </h1>
-                                <ol class="breadcrumb mb-3">
-                                    <li class="breadcrumb-item"><a href="<?= site_url('trainings') ?>">All Trainings</a></li>
-                                    <li class="breadcrumb-item active">Create New Training</li>
-                                </ol>
-                            </div>
-                            <div>
-                                <ul class="page_title_button" style="list-style: none; margin: 0;">
-                                    <li style="">
-                                        <a href="<?= site_url('trainings') ?>" class="btn btn-light">
-                                            <i class="fas fa-arrow-circle-left"></i>
-                                            <div class="text-muted">Back</div>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
+                <div class="row" style="background-color: white; border-radius: 0.375rem; margin-top: 5rem; margin-bottom: 1rem; padding: 2rem 1.5rem;">
+                    <div class="col-xl-8">
+                        <h1 class="mt-2 mb-3">
+                            <i class="fas fa-plus-circle"></i> Create Training
+                        </h1>
+                        <ol class="breadcrumb mb-3">
+                            <li class="breadcrumb-item"><a href="<?= site_url('dashboard') ?>">Dashboard</a></li>
+                            <li class="breadcrumb-item active">Create New Training</li>
+                        </ol>
+                    </div>
+                    <div class="col-xl-4">
+                        <div class="text-end mt-4">
+                            <ul class="page_title_button" style="list-style: none; margin: 0;">
+                                <li>
+                                    <a href="<?= site_url('trainings') ?>" class="btn btn-light">
+                                        <i class="fas fa-arrow-circle-left"></i>
+                                        <div class="text-muted">Back to Manage Trainings</div>
+                                    </a>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -160,7 +158,7 @@
                                     </div>
                                     
                                     <div class="col-md-4 mb-3">
-                                        <label for="training_deadline" class="form-label fw-bold">Enrollment Deadline</label>
+                                        <label for="training_deadline" class="form-label fw-bold">Registration Deadline</label>
                                         <input type="date" class="form-control <?= isset($validation) && $validation->hasError('training_deadline') ? 'is-invalid' : '' ?>" 
                                                id="training_deadline" name="training_deadline" 
                                                value="<?= old('training_deadline') ?>">
@@ -258,10 +256,21 @@
                                         </label>
                                     </div>
                                 </div>
+                                
+                                <div class="checkbox-custom">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="training_with_cert" name="training_with_cert" value="1" 
+                                               <?= old('training_with_cert') ? 'checked' : '' ?>>
+                                        <label class="form-check-label fw-bold" for="training_with_cert">
+                                            With Certificate
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
-                        <!-- Right Column - Details (Descriptions and Learnings) -->
+                        <!-- Right Column - Details and Sessions -->
                         <div class="col-lg-6">
                             <div class="form-section">
                                 <div class="form-section-title">
@@ -305,6 +314,40 @@
                                         <i class="fas fa-plus"></i> Add Another Learning
                                     </button>
                                 </div>
+                            </div>
+                            
+                            <!-- Training Sessions Section -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="fas fa-calendar-alt"></i> Training Sessions
+                                </div>
+                                
+                                <div class="alert alert-info mb-3">
+                                    <i class="fas fa-info-circle"></i> Add one or more sessions for this training. You can add multiple dates and times.
+                                </div>
+                                
+                                <div id="sessionsContainer">
+                                    <div class="session-item mb-3 p-3 border rounded bg-white">
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-bold">Session Date</label>
+                                                <input type="date" class="form-control session-date" name="session_date[]" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-bold">Start Time</label>
+                                                <input type="time" class="form-control session-start-time" name="session_start_time[]" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-bold">End Time</label>
+                                                <input type="time" class="form-control session-end-time" name="session_end_time[]" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addSession()">
+                                    <i class="fas fa-plus"></i> Add Another Session
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -457,6 +500,77 @@
                 }
             }
             
+            // Validate training hours against session durations before form submission
+            $('form').on('submit', function(e) {
+                const trainingHours = parseFloat($('#training_hours').val());
+                
+                if (isNaN(trainingHours) || trainingHours <= 0) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Invalid Training Hours',
+                        text: 'Please enter a valid training hours value'
+                    });
+                    return false;
+                }
+                
+                // Calculate total session hours
+                let totalSessionMinutes = 0;
+                let hasSessions = false;
+                
+                $('.session-item').each(function() {
+                    const startTime = $(this).find('.session-start-time').val();
+                    const endTime = $(this).find('.session-end-time').val();
+                    
+                    if (startTime && endTime) {
+                        hasSessions = true;
+                        
+                        // Parse time strings (HH:MM format)
+                        const startParts = startTime.split(':');
+                        const endParts = endTime.split(':');
+                        
+                        const startMinutes = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
+                        const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
+                        
+                        // Calculate duration in minutes
+                        let durationMinutes = endMinutes - startMinutes;
+                        
+                        // Handle overnight sessions (if end time is before start time)
+                        if (durationMinutes < 0) {
+                            durationMinutes += 24 * 60; // Add 24 hours in minutes
+                        }
+                        
+                        totalSessionMinutes += durationMinutes;
+                    }
+                });
+                
+                if (!hasSessions) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Sessions Added',
+                        text: 'Please add at least one session for this training'
+                    });
+                    return false;
+                }
+                
+                // Convert total minutes to hours
+                const totalSessionHours = totalSessionMinutes / 60;
+                
+                // Allow small rounding difference (0.1 hours = 6 minutes)
+                const difference = Math.abs(totalSessionHours - trainingHours);
+                
+                if (difference > 0.1) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Training Hours Mismatch',
+                        html: `The training hours (${trainingHours} hrs) does not match the sum of session durations (${totalSessionHours.toFixed(2)} hrs).<br><br>Please adjust either the training hours or session times.`
+                    });
+                    return false;
+                }
+            });
+            
             // Character counter for textareas
             $('#descriptionsContainer').on('input', 'textarea', function() {
                 var maxLength = 2000;
@@ -556,7 +670,61 @@
                 });
             }
         }
+        
+        // Add session function
+        function addSession() {
+            const container = document.getElementById('sessionsContainer');
+            const index = container.children.length;
+            const div = document.createElement('div');
+            div.className = 'session-item mb-3 p-3 border rounded bg-white';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted fw-bold">Session #${index + 1}</small>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSession(this)">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Session Date</label>
+                        <input type="date" class="form-control session-date" name="session_date[]" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Start Time</label>
+                        <input type="time" class="form-control session-start-time" name="session_start_time[]" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">End Time</label>
+                        <input type="time" class="form-control session-end-time" name="session_end_time[]" required>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+        
+        // Remove session function
+        function removeSession(button) {
+            const container = document.getElementById('sessionsContainer');
+            if (container.children.length > 1) {
+                button.closest('.session-item').remove();
+                // Renumber remaining items
+                Array.from(container.children).forEach((item, index) => {
+                    const label = item.querySelector('small.fw-bold');
+                    if (label) {
+                        label.textContent = `Session #${index + 1}`;
+                    }
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Cannot Remove',
+                    text: 'At least one session is required'
+                });
+            }
+        }
     </script>
+    
+        </div><!-- End layoutSidenav_content -->
     
 </body>
 </html>

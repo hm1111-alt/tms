@@ -1,14 +1,9 @@
         <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
             <!-- Navbar Brand-->
-            <a class="navbar-brand ps-3" href="<?= site_url('/') ?>" style="height: 50px;">
+            <div class="navbar-brand ps-3" style="height: 50px; display: flex; align-items: center;">
                 <img src="<?= images('clsu_logo.png'); ?>" style="height: 35px; margin-right: 10px;">
-                TMS Admin
-            </a>
-            
-            <!-- Sidebar Toggle-->
-            <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!">
-                <i class="fas fa-bars"></i>
-            </button>
+                TRAINING MANAGEMENT SYSTEM
+            </div>
             
             <!-- Navbar Search (Empty for spacing) -->
             <form class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0">

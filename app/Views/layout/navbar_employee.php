@@ -2,17 +2,8 @@
             <!-- Navbar Brand-->
             <a class="navbar-brand ps-3" href="<?= site_url('/') ?>" style="height: 50px;">
                 <img src="<?= images('clsu_logo.png'); ?>" style="height: 35px; margin-right: 10px;">
-                <?php 
-                $user_type = session()->get('user_type_name');
-                if (stripos($user_type, 'guest') !== false) {
-                    echo 'Guest Portal';
-                } else {
-                    echo 'Employee Portal';
-                }
-                ?>
+                Training Management System
             </a>
-            <!-- Sidebar Toggle-->
-            <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
             
             <!-- Navbar Search (Empty placeholder for spacing) -->
             <form class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0">

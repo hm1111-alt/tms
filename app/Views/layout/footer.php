@@ -18,6 +18,18 @@
         <button id="backToTop" class="btn btn-success rounded-circle shadow"  title="Back to top">
           <i class="fas fa-arrow-up"></i>
         </button>
+
+        <!-- Footer -->
+        <footer class="py-4 bg-light mt-auto">
+            <div class="container-fluid px-4">
+                <div class="align-items-center justify-content-between small">
+                    <div class="text-muted" style="text-align: right;">
+                        &copy; <?= date('Y') ?> CLSU. All rights reserved.
+                        <br>Powered by <span class="text-success">Management Information System Office (CLSU-MISO)</span>.
+                    </div>
+                </div>
+            </div>
+        </footer>
   
     </body>
 </html>

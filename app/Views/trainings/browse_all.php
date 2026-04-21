@@ -87,10 +87,24 @@
                                     <button class="btn btn-secondary" disabled>
                                         <i class="fas fa-check-circle me-1"></i>Already Joined
                                     </button>
+                                <?php elseif (isset($training['has_attended']) && $training['has_attended']): ?>
+                                    <button class="btn btn-secondary" disabled>
+                                        <i class="fas fa-check-circle me-1"></i>Already Attended
+                                    </button>
                                 <?php else: ?>
-                                    <a href="<?= site_url('trainings/enroll/' . $training['id_training']) ?>" class="btn btn-success">
+                                    <?php
+                                    // Check if training is open for registration
+                                    $status_name = strtolower($training['status_name'] ?? '');
+                                    $is_ongoing = isset($training['is_ongoing']) && $training['is_ongoing'];
+                                    $is_open = ($status_name === 'open');
+                                    $is_disabled = $is_ongoing || !$is_open;
+                                    ?>
+                                    <button class="btn <?= $is_disabled ? 'btn-secondary disabled' : 'btn-success join-training-btn' ?>" 
+                                            data-training-id="<?= $training['id_training'] ?>"
+                                            data-training-name="<?= esc($training['training_name']) ?>"
+                                            <?= $is_disabled ? 'disabled' : '' ?>>
                                         <i class="fas fa-user-plus me-1"></i>Join Now
-                                    </a>
+                                    </button>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -104,5 +118,43 @@
         </div>
     <?php endif; ?>
 </div>
+
+<script>
+$(document).ready(function() {
+    // Join training button with confirmation
+    $(document).on('click', '.join-training-btn', function() {
+        const btn = $(this);
+        const trainingId = btn.data('training-id');
+        const trainingName = btn.data('training-name');
+        
+        // Show confirmation dialog
+        Swal.fire({
+            title: 'Join Training?',
+            html: `<p>Are you sure you want to join <strong>${trainingName}</strong>?</p>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fas fa-check"></i> Yes, Join Now!',
+            cancelButtonText: '<i class="fas fa-times"></i> Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading
+                Swal.fire({
+                    title: 'Processing...',
+                    text: 'Enrolling you in the training...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Redirect to enroll endpoint
+                window.location.href = '<?= site_url('trainings/register/') ?>' + trainingId;
+            }
+        });
+    });
+});
+</script>
 
 <?= $this->endSection() ?>

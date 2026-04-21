@@ -28,7 +28,6 @@ class mdl_lib_training_categories extends Model
             log_message('error', 'Error fetching categories: ' . $e->getMessage());
         }
 
-        // Fallback default categories
         return [
             ['id' => 1, 'category_name' => 'Management'],
             ['id' => 2, 'category_name' => 'Technical'], 

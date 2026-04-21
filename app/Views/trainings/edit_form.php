@@ -1,4 +1,4 @@
-<?php $request = \Config\Services::request(); ?>
+﻿<?php $request = \Config\Services::request(); ?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -22,6 +22,17 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
+        /* Remove sidebar margin - full width content */
+        #layoutSidenav_content {
+            margin-left: 0 !important;
+            width: 100% !important;
+        }
+        
+        /* Add padding for fixed navbar to prevent overlap */
+        .sb-nav-fixed #layoutSidenav_content {
+            padding-top: 80px !important;
+        }
+        
         .form-section {
             background-color: #f8f9fc;
             border-radius: 0.375rem;
@@ -59,13 +70,9 @@
     
     <?= $this->include('layout/navbar_admin') ?>
     
-    <div id="layoutSidenav">
+    <div id="layoutSidenav_content">
         
-        <?= $this->include('layout/sidebar') ?>
-        
-        <div id="layoutSidenav_content">
-            
-            <div class="container-fluid px-4">
+        <div class="container-fluid px-4">
                 
                 <div class="row mt-4 mb-4" style="background-color: white; border-radius: 0.375rem; margin:1rem 0 1rem 0; padding: 1.5rem;">
                     <div class="col-12">
@@ -259,6 +266,17 @@
                                         </label>
                                     </div>
                                 </div>
+                                
+                                <div class="checkbox-custom">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="training_with_cert" name="training_with_cert" value="1" 
+                                               <?= (old('training_with_cert', $training['training_with_cert'] ?? 0) == 1) ? 'checked' : '' ?>>
+                                        <label class="form-check-label fw-bold" for="training_with_cert">
+                                            With Certificate
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -278,7 +296,7 @@
                                                 <textarea class="form-control <?= isset($validation) && $validation->hasError('training_description.' . $index) ? 'is-invalid' : '' ?>" 
                                                           name="training_description[]" 
                                                           rows="3" 
-                                                          placeholder="Enter training description"><?= esc($desc['training_des']) ?></textarea>
+                                                          placeholder="Enter training description"><?= esc($desc['training_description']) ?></textarea>
                                                 <small class="text-muted">Maximum 2000 characters</small>
                                                 <?php if(isset($validation) && $validation->hasError('training_description.' . $index)): ?>
                                                     <div class="invalid-feedback d-block"><?= $validation->getError('training_description.' . $index) ?></div>
@@ -338,6 +356,72 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    
+                    <!-- Training Sessions Section -->
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            <i class="fas fa-calendar-alt"></i> Training Sessions
+                        </div>
+                        
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle"></i> Add or edit sessions for this training. You can add multiple dates and times.
+                        </div>
+                        
+                        <div id="sessionsContainer">
+                            <?php if(!empty($sessions)): ?>
+                                <?php foreach($sessions as $index => $session): ?>
+                                <div class="session-item mb-3 p-3 border rounded bg-white">
+                                    <?php if($index > 0): ?>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <small class="text-muted fw-bold">Session #<?= $index + 1 ?></small>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSession(this)">
+                                            <i class="fas fa-trash"></i> Remove
+                                        </button>
+                                    </div>
+                                    <?php endif; ?>
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Session Date</label>
+                                            <input type="date" class="form-control session-date" name="session_date[]" 
+                                                   value="<?= !empty($session['session_date']) ? date('Y-m-d', strtotime($session['session_date'])) : '' ?>" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Start Time</label>
+                                            <input type="time" class="form-control session-start-time" name="session_start_time[]" 
+                                                   value="<?= !empty($session['session_start_time']) ? date('H:i', strtotime($session['session_start_time'])) : '' ?>" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">End Time</label>
+                                            <input type="time" class="form-control session-end-time" name="session_end_time[]" 
+                                                   value="<?= !empty($session['session_end_time']) ? date('H:i', strtotime($session['session_end_time'])) : '' ?>" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class="session-item mb-3 p-3 border rounded bg-white">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Session Date</label>
+                                            <input type="date" class="form-control session-date" name="session_date[]" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Start Time</label>
+                                            <input type="time" class="form-control session-start-time" name="session_start_time[]" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">End Time</label>
+                                            <input type="time" class="form-control session-end-time" name="session_end_time[]" required>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addSession()">
+                            <i class="fas fa-plus"></i> Add Another Session
+                        </button>
                     </div>
                     
                     <!-- Submit Buttons -->
@@ -488,6 +572,77 @@
                 }
             }
             
+            // Validate training hours against session durations before form submission
+            $('form').on('submit', function(e) {
+                const trainingHours = parseFloat($('#training_hours').val());
+                
+                if (isNaN(trainingHours) || trainingHours <= 0) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Invalid Training Hours',
+                        text: 'Please enter a valid training hours value'
+                    });
+                    return false;
+                }
+                
+                // Calculate total session hours
+                let totalSessionMinutes = 0;
+                let hasSessions = false;
+                
+                $('.session-item').each(function() {
+                    const startTime = $(this).find('.session-start-time').val();
+                    const endTime = $(this).find('.session-end-time').val();
+                    
+                    if (startTime && endTime) {
+                        hasSessions = true;
+                        
+                        // Parse time strings (HH:MM format)
+                        const startParts = startTime.split(':');
+                        const endParts = endTime.split(':');
+                        
+                        const startMinutes = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
+                        const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
+                        
+                        // Calculate duration in minutes
+                        let durationMinutes = endMinutes - startMinutes;
+                        
+                        // Handle overnight sessions (if end time is before start time)
+                        if (durationMinutes < 0) {
+                            durationMinutes += 24 * 60; // Add 24 hours in minutes
+                        }
+                        
+                        totalSessionMinutes += durationMinutes;
+                    }
+                });
+                
+                if (!hasSessions) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Sessions Added',
+                        text: 'Please add at least one session for this training'
+                    });
+                    return false;
+                }
+                
+                // Convert total minutes to hours
+                const totalSessionHours = totalSessionMinutes / 60;
+                
+                // Allow small rounding difference (0.1 hours = 6 minutes)
+                const difference = Math.abs(totalSessionHours - trainingHours);
+                
+                if (difference > 0.1) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Training Hours Mismatch',
+                        html: `The training hours (${trainingHours} hrs) does not match the sum of session durations (${totalSessionHours.toFixed(2)} hrs).<br><br>Please adjust either the training hours or session times.`
+                    });
+                    return false;
+                }
+            });
+            
             // Character counter for textareas
             $('#descriptionsContainer').on('input', 'textarea', function() {
                 var maxLength = 2000;
@@ -586,6 +741,50 @@
                     text: 'At least one learning objective is required'
                 });
             }
+        }
+
+        // Add session function
+        function addSession() {
+            const container = document.getElementById('sessionsContainer');
+            const index = container.children.length;
+            const div = document.createElement('div');
+            div.className = 'session-item mb-3 p-3 border rounded bg-white';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted fw-bold">Session #${index + 1}</small>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSession(this)">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Session Date</label>
+                        <input type="date" class="form-control session-date" name="session_date[]" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Start Time</label>
+                        <input type="time" class="form-control session-start-time" name="session_start_time[]" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">End Time</label>
+                        <input type="time" class="form-control session-end-time" name="session_end_time[]" required>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+        
+        // Remove session function
+        function removeSession(button) {
+            button.closest('.session-item').remove();
+            // Renumber remaining items
+            const container = document.getElementById('sessionsContainer');
+            Array.from(container.children).forEach((item, index) => {
+                const label = item.querySelector('small.fw-bold');
+                if (label) {
+                    label.textContent = `Session #${index + 1}`;
+                }
+            });
         }
     </script>
     

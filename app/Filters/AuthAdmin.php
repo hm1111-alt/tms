@@ -19,9 +19,10 @@ class AuthAdmin implements FilterInterface
         
         if(!session()->get('logged_in')){
             return redirect()->to('login');
-        } else if (session()->get('logged_in')==TRUE && session()->get('first_login')==1 && $request->uri->getSegment(1)!='updateprofile') {
-            
-            return redirect()->to('updateprofile');
+        // TEMPORARILY DISABLED - Skip profile update on first login
+        // } else if (session()->get('logged_in')==TRUE && session()->get('first_login')==1 && session()->get('user_type_id')==2 && $request->uri->getSegment(1)!='updateprofile') {
+        //     // Only redirect to updateprofile for employees (user_type_id=2), not for guests
+        //     return redirect()->to('updateprofile');
         } else if (session()->get('password_reset')==1 && $request->uri->getSegment(1)!='dashboard'  && $request->uri->getSegment(1)!='updateprofile' &&
                 ($request->uri->getSegment(1)!='profile' && $request->uri->getSegment(2)!='update_password')
             ) {

@@ -9,7 +9,6 @@ class LoginController extends BaseController
         public function __construct()
         {
                 
-                // Load the model in the constructor
                 $this->mdl_login = new \App\Models\preferences\mdl_login();
                 
 //            
@@ -87,7 +86,7 @@ class LoginController extends BaseController
                                     
                                         'user_type_id' => $row->user_type_id,
                                         'user_type_name' => $row->user_type_name,
-                                        'access_level' => @$row->access_id,
+                                        'access_level' => $row->user_type_id,
                                         'emp_class' => @$row->emp_class_name,
                                     
                                         'emp_office' => @$row->emp_office,
@@ -230,62 +229,80 @@ class LoginController extends BaseController
                 return redirect()->to('/login'); // Redirect to login page
         }
         
-        private function _validate_employee_registration()
+        private function _validate_registration()
         {
-                $rules = [
-                    'employee_idno' => [
-                        'label' => 'Employee ID no.',
-                        'rules' =>'required|trim',
-                    ],
-                    'employee_fname' => [
-                        'label' => 'First Name',
-                        'rules' =>'required|trim',
-                    ],
-                    'employee_lname' => [
-                        'label' => 'Last Name',
-                        'rules' =>'required|trim',
-                    ],
-                    'email_address' => [
-                        'label' => 'E-mail Address',
-                        'rules' =>'required|trim|valid_email',
-                    ],
-                    'password' => [
-                        'label' => 'Password',
-                        'rules' =>'required|min_length[12]|max_length[30]',
-                    ],
-                    'password_confirm' => [
-                        'label' => 'Confirm Password',
-                        'rules' =>'required|matches[password]',
-                    ],
-                ];
+                // Check which form was submitted
+                $registration_type = $this->request->getPost('registration_type');
                 
-                return $this->validate($rules);
-        }
-        
-        private function _validate_guest_registration()
-        {
-                $rules = [
-                    'guest_fname' => [
-                        'label' => 'First Name',
-                        'rules' =>'required|trim',
-                    ],
-                    'guest_lname' => [
-                        'label' => 'Last Name',
-                        'rules' =>'required|trim',
-                    ],
-                    'guest_email' => [
-                        'label' => 'E-mail Address',
-                        'rules' =>'required|trim|valid_email',
-                    ],
-                    'guest_password' => [
-                        'label' => 'Password',
-                        'rules' =>'required|min_length[8]|max_length[30]',
-                    ],
-                    'guest_password_confirm' => [
-                        'label' => 'Confirm Password',
-                        'rules' =>'required|matches[guest_password]',
-                    ],
-                ];
+                if($registration_type == 'employee') {
+                        // Employee registration validation
+                        $rules = [
+                                'employee_idno' => [
+                                        'label' => 'Employee ID no.',
+                                        'rules' =>'required|trim',
+                                ],
+                                'employee_fname' => [
+                                        'label' => 'First Name',
+                                        'rules' =>'required|trim',
+                                ],
+                                'employee_lname' => [
+                                        'label' => 'Last Name',
+                                        'rules' =>'required|trim',
+                                ],
+                                'employee_mi' => [
+                                        'label' => 'Middle Initial',
+                                        'rules' =>'permit_empty|trim|max_length[2]',
+                                ],
+                                'employee_extname' => [
+                                        'label' => 'Extension Name',
+                                        'rules' =>'permit_empty|trim',
+                                ],
+                                'email_address' => [
+                                        'label' => 'E-mail Address',
+                                        'rules' =>'required|trim|valid_email',
+                                ],
+                                'password' => [
+                                        'label' => 'Password',
+                                        'rules' =>'required|min_length[12]|max_length[30]',
+                                ],
+                                'password_confirm' => [
+                                        'label' => 'Confirm Password',
+                                        'rules' =>'required|matches[password]',
+                                ],
+                        ];
+                } else {
+                        // Guest registration validation
+                        $rules = [
+                                'guest_fname' => [
+                                        'label' => 'First Name',
+                                        'rules' =>'required|trim',
+                                ],
+                                'guest_lname' => [
+                                        'label' => 'Last Name',
+                                        'rules' =>'required|trim',
+                                ],
+                                'guest_mi' => [
+                                        'label' => 'Middle Initial',
+                                        'rules' =>'permit_empty|trim|max_length[2]',
+                                ],
+                                'guest_extname' => [
+                                        'label' => 'Extension Name',
+                                        'rules' =>'permit_empty|trim',
+                                ],
+                                'guest_email' => [
+                                        'label' => 'E-mail Address',
+                                        'rules' =>'required|trim|valid_email',
+                                ],
+                                'guest_password' => [
+                                        'label' => 'Password',
+                                        'rules' =>'required|min_length[8]|max_length[30]',
+                                ],
+                                'guest_password_confirm' => [
+                                        'label' => 'Confirm Password',
+                                        'rules' =>'required|matches[guest_password]',
+                                ],
+                        ];
+                }
                 
                 return $this->validate($rules);
         }
@@ -442,7 +459,7 @@ class LoginController extends BaseController
                                     $cc = '';
                                     $bcc = '';
 
-                                    $to_email = @$user[0]->user_email; // 'benj0143@yahoo.com'; // for testing //
+                                    $to_email = @$user[0]->user_email; 
                                     $to_name = @$user[0]->emp_fname.' '.@$user[0]->emp_lname.' '.@$user[0]->emp_extname; 
 
                                     helper('mailer'); // Load URL helper
@@ -502,158 +519,68 @@ class LoginController extends BaseController
         
         public function register()
         {
-                // Check which form was submitted
-                $registration_type = $this->request->getPost('registration_type') ?? 'employee';
-                
-                if ($registration_type === 'guest') {
-                    // Guest registration
-                    return $this->register_guest();
-                } else {
-                    // Employee registration (default)
-                    return $this->register_employee();
-                }
-        }
-        
-        /**
-         * Employee registration with Employee ID validation
-         */
-        private function register_employee()
-        {
-                $validation = $this->_validate_employee_registration();
+                $validation = $this->_validate_registration();
                 
                 if(($this->request->getPost() && $validation!=TRUE) || !$this->request->getPost()){
                         return view('login/user_registration');
-                } else if (!$this->mdl_login->valid_password()) {
-                        $data['pass_error'] = 'Password should be at least 12 characters with uppercase, lowercase, numbers, and special characters.';
-                        $data['module'] = '';
-                        if($this->request->getPost()){
-                            \Config\Services::validation();
-                            $data['validation'] = $this->validator;
-                        }
-                        return view('login/user_registration',$data);
                 } else {
-                        // check if id number exists 
-                        if($this->mdl_login->check_user_exist()==true){
-                                session()->setFlashdata('error', 'Failed! ID no. or E-mail already registered!');
-                                return redirect()->to('register');
-                        } else {
-                                $employee = $this->mdl_login->check_employee_valid();
-
-                                // check valid employee
-                                if($employee==false){
-                                    session()->setFlashdata('error', '<b>Incorrect details!</b> Please verify your information at the Human Resources Management Office (HRMO).');
-                                    return redirect()->to('register');
-                                // check valid employee is active
-                                } else if(@$employee[0]->emp_is_active==0) {
-                                    session()->setFlashdata('error', 'Employee is no longer active. Please contact HRMO.');
-                                    return redirect()->to('register');
-                                } else {
-                                    $this->request = \Config\Services::request();
-                                    $res = $this->mdl_login->save_registration(@$employee[0]->emp_idno);
-                                    
-                                    if($res==false){
-                                            session()->setFlashdata('error', '<b>Error!</b> Something went wrong while saving registration. Please contact HRMO or <b style="color: blue;">miso@clsu.edu.ph</b>.');
-                                            return redirect()->to('register');
-                                    } else {
-                                            $name = $this->request->getPost('employee_fname');
-                                            $refno = $res;
-                                            
-                                            $data['email_title'] = 'Account Registration';
-                                            $email_body = "Hi ".$name.",";
-                                            $email_body .= "<br><br>Please click on the following link to verify your email";
-                                            $email_body .= "<br><br>";
-                                            $email_body .= "<a href='".site_url('verify/'.@$refno)."' style='font-weight: bold; font-size: larger; color: blue;' target='_blank'>VERIFY EMAIL ADDRESS</a>";
-                                            $email_body .= "<br><br><br>or paste the following URL in your browser:";
-                                            $email_body .= "<br><br>&emsp;".site_url('verify/'.@$refno)." <br><br>";
-                                            $email_body .= '<br><hr><br>This is an auto-generated email from CLSU E-portal. Please do not reply.';
-                                            
-                                            $data['email_body'] = $email_body;
-                                            $body = view('login/email_body', $data);
-                                            $subject = 'CLSU E-portal | Account Registration';
-                                            $cc = '';
-                                            $bcc = '';
-
-                                            $to_email = $this->request->getPost('email_address');
-                                            $to_name = $this->request->getPost('employee_fname').' '.$this->request->getPost('employee_lname'); 
-
-                                            helper('mailer');
-                                            $mail_res = phpmail('CLSU-MISO-mailer',$to_email,$to_name,$subject,$body, $cc,$bcc);
-
-                                            if($mail_res){
-                                                session()->setFlashdata('success', '<b>Account registration successful!</b><br>Please check your email to verify your account before logging in.');
-                                                return redirect()->to('login');
-                                            } else {
-                                                session()->setFlashdata('error', '<b>Error!</b> Something went wrong while sending email notification.<br>Please contact <b style="color: blue;">miso@clsu.edu.ph</b>.');
-                                                return redirect()->to('register');
-                                            }
-                                    }
-                                }
-                        }
-                }
-        }
-        
-        /**
-         * Guest registration without Employee ID requirement
-         */
-        private function register_guest()
-        {
-                $validation = $this->_validate_guest_registration();
-                
-                if(($this->request->getPost() && $validation!=TRUE) || !$this->request->getPost()){
-                        return view('login/user_registration');
-                } else if (!$this->mdl_login->valid_password(8)) {
-                        $data['pass_error'] = 'Password should be at least 8 characters with uppercase, lowercase, numbers, and special characters.';
-                        $data['module'] = '';
-                        if($this->request->getPost()){
-                            \Config\Services::validation();
-                            $data['validation'] = $this->validator;
-                        }
-                        return view('login/user_registration',$data);
-                } else {
-                        // Check if email already exists
-                        if($this->mdl_login->check_email_exists($this->request->getPost('guest_email'))){
-                                session()->setFlashdata('error', 'Failed! Email address already registered!');
-                                return redirect()->to('register');
-                        } else {
-                                $this->request = \Config\Services::request();
-                                $res = $this->mdl_login->save_guest_registration();
+                        // Check which registration type
+                        $registration_type = $this->request->getPost('registration_type');
+                        
+                        if($registration_type == 'employee') {
+                                // Employee registration
+                                $employee_idno = $this->request->getPost('employee_idno');
                                 
-                                if($res==false){
-                                        session()->setFlashdata('error', '<b>Error!</b> Something went wrong while saving registration. Please contact <b style="color: blue;">miso@clsu.edu.ph</b>.');
+                                // Check if already registered
+                                if($this->mdl_login->check_user_exist()==true){
+                                        session()->setFlashdata('error', 'Failed! ID no. or E-mail already registered!');
                                         return redirect()->to('register');
+                                }
+                                
+                                // Validate employee
+                                $employee = $this->mdl_login->check_employee_valid();
+                                
+                                if($employee==false){
+                                        session()->setFlashdata('error', '<b>Incorrect employee details!</b> Employee ID not found in database. Please verify your information at the Human Resources Management Office (HRMO).');
+                                        return redirect()->to('register');
+                                }
+                                
+                                // Save with employee validation
+                                $res = $this->mdl_login->save_registration(@$employee[0]->emp_idno);
+                        } else {
+                                // Guest registration - simple registration
+                                // Check if email already exists
+                                if($this->mdl_login->check_email_exists($this->request->getPost('guest_email'))){
+                                        session()->setFlashdata('error', 'Failed! Email address already registered!');
+                                        return redirect()->to('register');
+                                }
+                                
+                                // Save simple registration
+                                $res = $this->mdl_login->save_registration_simple();
+                        }
+                                
+                        if($res==false){
+                                session()->setFlashdata('error', '<b>Error!</b> Something went wrong while saving registration. Please contact <b style="color: blue;">miso@clsu.edu.ph</b>.');
+                                return redirect()->to('register');
+                        } else {
+                                $registration_type = $this->request->getPost('registration_type');
+                                $refno = $res;
+                                
+                                if($registration_type == 'employee') {
+                                        // Employee registration
+                                        $name = $this->request->getPost('employee_fname');
+                                        $employee_idno = $this->request->getPost('employee_idno');
+                                        
+                                        // TEMPORARILY DISABLED - Email verification not required yet
+                                        // Skip email verification, allow immediate login
+                                        session()->setFlashdata('success', '<b>Account registration successful!</b><br>You can now login to continue.');
+                                        return redirect()->to('login');
                                 } else {
+                                        // Guest registration
                                         $name = $this->request->getPost('guest_fname');
-                                        $refno = $res;
                                         
-                                        $data['email_title'] = 'Guest Account Registration';
-                                        $email_body = "Hi ".$name.",";
-                                        $email_body .= "<br><br>Welcome to CLSU Training Management System!";
-                                        $email_body .= "<br><br>Please click on the following link to verify your email";
-                                        $email_body .= "<br><br>";
-                                        $email_body .= "<a href='".site_url('verify/'.@$refno)."' style='font-weight: bold; font-size: larger; color: blue;' target='_blank'>VERIFY EMAIL ADDRESS</a>";
-                                        $email_body .= "<br><br><br>or paste the following URL in your browser:";
-                                        $email_body .= "<br><br>&emsp;".site_url('verify/'.@$refno)." <br><br>";
-                                        $email_body .= '<br><hr><br>This is an auto-generated email from CLSU E-portal. Please do not reply.';
-                                        
-                                        $data['email_body'] = $email_body;
-                                        $body = view('login/email_body', $data);
-                                        $subject = 'CLSU E-portal | Guest Account Registration';
-                                        $cc = '';
-                                        $bcc = '';
-
-                                        $to_email = $this->request->getPost('guest_email');
-                                        $to_name = $this->request->getPost('guest_fname').' '.$this->request->getPost('guest_lname'); 
-
-                                        helper('mailer');
-                                        $mail_res = phpmail('CLSU-MISO-mailer',$to_email,$to_name,$subject,$body, $cc,$bcc);
-
-                                        if($mail_res){
-                                            session()->setFlashdata('success', '<b>Guest account registration successful!</b><br>Please check your email to verify your account before logging in.');
-                                            return redirect()->to('login');
-                                        } else {
-                                            session()->setFlashdata('error', '<b>Error!</b> Something went wrong while sending email notification.<br>Please contact <b style="color: blue;">miso@clsu.edu.ph</b>.');
-                                            return redirect()->to('register');
-                                        }
+                                        session()->setFlashdata('success', '<b>Account registration successful!</b><br>You can now login to continue.');
+                                        return redirect()->to('login');
                                 }
                         }
                 }

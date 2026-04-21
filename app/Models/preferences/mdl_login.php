@@ -33,9 +33,8 @@ class Mdl_Login extends Model
         {
                 // First, get basic user info and user type
                 $query = $this->db->query("SELECT is_active,userid,username,password_expired,employee_idno,user_email,
-                                                user_type_id,register_verified,first_login, password_reset,reset_link,
-                                                access_id,hrmis_access,
-                                                user_type_id, user_types.users as user_type_name
+                                                users.user_type_id,register_verified,first_login, password_reset,reset_link,
+                                                user_types.user_type as user_type_name
                                             FROM users
                                             LEFT JOIN user_types ON users.user_type_id = user_types.id
                                             WHERE userid =" . $userid . " ");
@@ -316,7 +315,18 @@ class Mdl_Login extends Model
                     'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
                     'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
                 );
-                $this->db->table('history')->insert($his_data);
+                // Log to logs table instead of history
+                try {
+                    $this->db->table('logs')->insert([
+                        'logs_date' => date('Y-m-d H:i:s'),
+                        'logs_user' => session()->get('userid'),
+                        'logs_action' => 'PASSWORD UPDATE',
+                        'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+                        'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                    ]);
+                } catch(\Exception $e) {
+                    log_message('error', 'Failed to insert password update log: ' . $e->getMessage());
+                }
         }
         
     //-----account--registration--start
@@ -335,11 +345,10 @@ class Mdl_Login extends Model
 	{
                 $this->request = \Config\Services::request();
                 try {
-                    $query = $this->db_employee->query("SELECT emp_idno,emp_fname,emp_lname,emp_mi,emp_extname,emp_is_active 
+                    // Only validate by Employee ID number
+                    $query = $this->db_employee->query("SELECT emp_idno,emp_fname,emp_lname,emp_mi,emp_extname 
                                                         FROM employees 
-                                                        WHERE emp_idno ='" . esc($this->request->getPost('employee_idno')) . "'
-                                                            AND emp_fname ='" . esc($this->request->getPost('employee_fname')) . "'
-                                                            AND emp_lname ='" . esc($this->request->getPost('employee_lname')) . "'
+                                                        WHERE emp_idno = '" . esc($this->request->getPost('employee_idno')) . "'
                                                         ");
                     return $query->getResult() ? $query->getResult() : false;
                 } catch(\Exception $e) {
@@ -426,17 +435,18 @@ class Mdl_Login extends Model
                 $res_lbl = $res ? '' : ' (failed)';
                 
                 $user = $this->get_user_details($userid);
-                $his_data = array(
-                    'history_date'=>date('Y-m-d H:i:s'),
-                    'history_name'=>$userid,
-                    'history_category'=>'ACCOUNT',
-                    'history_action'=> 'Update Password'.$res_lbl,
-                    'history_remarks'=> @$user[0]->emp_fname.' '.@$user[0]->emp_lname.' '.@$user[0]->emp_extname.', Link = '.$link,
-                    'history_user'=> null,
-                    'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
-                    'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
-                );
-                $this->db->table('history')->insert($his_data);
+                // Log to logs table instead of history
+                try {
+                    $this->db->table('logs')->insert([
+                        'logs_date' => date('Y-m-d H:i:s'),
+                        'logs_user' => $userid,
+                        'logs_action' => 'PASSWORD RESET' . $res_lbl,
+                        'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+                        'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                    ]);
+                } catch(\Exception $e) {
+                    log_message('error', 'Failed to insert password reset log: ' . $e->getMessage());
+                }
                 
                 return $res;
 	}
@@ -451,11 +461,8 @@ class Mdl_Login extends Model
                     // Use db_employee instead of db_hrmis
                     $this->db_employee = Database::connect('db_employee');
                     $query = $this->db_employee->query("SELECT id_employee,emp_idno,emp_fname,emp_lname,emp_mi,emp_extname, emp_fullname,emp_fullname2,emp_sex,emp_prefix,
-                                                            emp_email_official, emp_email_personal, emp_status2,emp_class,class_name,
-                                                            emp_is_active, position_name,position_abbr 
+                                                            emp_email_official, emp_email_personal,emp_is_active
                                                         FROM employees 
-                                                        LEFT JOIN lib_positions ON emp_position=id_position
-                                                        LEFT JOIN lib_class ON emp_class=id_class
                                                         WHERE emp_idno ='" . $emp_idno . "'
                                                         ");
                     $result = $query->getResult();
@@ -466,10 +473,10 @@ class Mdl_Login extends Model
                 foreach($result as $emp){
                     
                     
-                    $query2 = $this->db->query("SELECT *
-                                                FROM employees 
-                                                WHERE emp_idno ='" . $emp_idno . "'
-                                                ");
+                    $query2 = $this->db_employee->query("SELECT *
+                                                        FROM employees 
+                                                        WHERE emp_idno ='" . $emp_idno . "'
+                                                        ");
                     $exist = $query2->getResult();
                     
                     if(!@$exist){
@@ -494,15 +501,36 @@ class Mdl_Login extends Model
                     }
                     
                     if(@$res || @$exist){
+                        // Get employee details from the database
+                        $emp_data = @$exist[0];
+                        
+                        // Concatenate full name
+                        $fname = $emp_data->emp_fname;
+                        $lname = $emp_data->emp_lname;
+                        $mi = $emp_data->emp_mi;
+                        $extname = $emp_data->emp_extname;
+                        $emp_fullname = trim($fname . ' ' . ($mi ? $mi . '. ' : '') . $lname . ($extname ? ' ' . $extname : ''));
+                        
                         $user_data = array(
                             'username' => $emp_idno,
                             'password' => password_hash($this->request->getPost('password'), PASSWORD_BCRYPT),
                             'employee_idno' => $emp_idno,
                             'user_email' => esc($this->request->getPost('email_address')),
+                            'emp_fname' => esc($fname),
+                            'emp_lname' => esc($lname),
+                            'emp_mi' => esc($mi),
+                            'emp_extname' => esc($extname),
+                            'emp_fullname' => esc($emp_fullname),
+                            'user_type_id' => 2, // Employee
                             'date_created' => date('Y-m-d H:i:s'),
-                            'is_active' => 0,
+                            // TEMPORARILY DISABLED - Email verification not required yet
+                            // 'is_active' => 0,
+                            'is_active' => 1, // Active immediately
                             'register_refno' => $refno,
-                            'register_verified' => 0,
+                            // 'register_verified' => 0,
+                            'register_verified' => 1, // Verified immediately
+                            // 'first_login' => 1,
+                            'first_login' => 0, // Skip profile update redirect, go to dashboard
                         );
                         $res2 = $this->db->table('users')->insert($user_data);
                     }
@@ -517,7 +545,19 @@ class Mdl_Login extends Model
                         'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
                         'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
                     );
-                    $this->db->table('history')->insert($his_data);
+                    
+                    // Log to logs table instead of history
+                    try {
+                        $this->db->table('logs')->insert([
+                            'logs_date' => date('Y-m-d H:i:s'),
+                            'logs_user' => $emp_idno,
+                            'logs_action' => 'USER REGISTRATION',
+                            'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+                            'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                        ]);
+                    } catch(\Exception $e) {
+                        log_message('warning', 'Could not log to logs table: ' . $e->getMessage());
+                    }
                     
                     return @$res2==true ? $refno : false;
                     
@@ -581,7 +621,72 @@ class Mdl_Login extends Model
     //-----account--registration--end
         
         /**
-         * Save guest registration
+         * Save simple registration (no employee validation) - For Guest registration
+         */
+        function save_registration_simple()
+        {
+            $this->request = \Config\Services::request();
+            
+            try {
+                $refno = $this->set_register_refno();
+                $fname = $this->request->getPost('guest_fname');
+                $lname = $this->request->getPost('guest_lname');
+                $mi = $this->request->getPost('guest_mi');
+                $extname = $this->request->getPost('guest_extname');
+                
+                // Concatenate full name
+                $emp_fullname = trim($fname . ' ' . ($mi ? $mi . '. ' : '') . $lname . ($extname ? ' ' . $extname : ''));
+                
+                // Create user account
+                $user_data = array(
+                    'username' => $this->request->getPost('guest_email'),
+                    'password' => password_hash($this->request->getPost('guest_password'), PASSWORD_BCRYPT),
+                    'employee_idno' => null,
+                    'user_email' => esc($this->request->getPost('guest_email')),
+                    'emp_fname' => esc($fname),
+                    'emp_lname' => esc($lname),
+                    'emp_mi' => esc($mi),
+                    'emp_extname' => esc($extname),
+                    'emp_fullname' => esc($emp_fullname),
+                    'user_type_id' => 3, // Guest
+                    'date_created' => date('Y-m-d H:i:s'),
+                    // TEMPORARILY DISABLED - Email verification not required yet
+                    'is_active' => 1, // All accounts active immediately
+                    'register_refno' => $refno,
+                    'register_verified' => 1, // All accounts verified immediately
+                    // 'first_login' => 1,
+                    'first_login' => 0, // Skip profile update redirect, go to dashboard
+                );
+                
+                $res = $this->db->table('users')->insert($user_data);
+                
+                if($res) {
+                    // Log to logs table
+                    try {
+                        $this->db->table('logs')->insert([
+                            'logs_date' => date('Y-m-d H:i:s'),
+                            'logs_user' => $this->request->getPost('guest_email'),
+                            'logs_action' => 'GUEST REGISTRATION',
+                            'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+                            'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                        ]);
+                    } catch(\Exception $e) {
+                        log_message('warning', 'Could not log to logs table: ' . $e->getMessage());
+                    }
+                    
+                    return $refno;
+                }
+                
+                return false;
+                
+            } catch(\Exception $e) {
+                log_message('error', 'Registration failed: ' . $e->getMessage());
+                return false;
+            }
+        }
+        
+        /**
+         * Save guest registration (deprecated - use save_registration_simple instead)
          */
         function save_guest_registration()
         {
@@ -615,17 +720,18 @@ class Mdl_Login extends Model
                 $res = $this->db->table('users')->insert($user_data);
                 
                 if($res) {
-                    $his_data = array(
-                        'history_date'=>date('Y-m-d H:i:s'),
-                        'history_name'=>'Guest User',
-                        'history_category'=>'ACCOUNT',
-                        'history_action'=> 'Guest Registration',
-                        'history_remarks'=> $this->request->getPost('fname').' '.$this->request->getPost('lname').' - '.$this->request->getPost('email_address').' refno - '.$refno,
-                        'history_user'=> null,
-                        'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
-                        'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
-                    );
-                    $this->db->table('history')->insert($his_data);
+                    // Log to logs table instead of history
+                    try {
+                        $this->db->table('logs')->insert([
+                            'logs_date' => date('Y-m-d H:i:s'),
+                            'logs_user' => 'Guest User',
+                            'logs_action' => 'GUEST REGISTRATION',
+                            'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+                            'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                        ]);
+                    } catch(\Exception $e) {
+                        log_message('error', 'Failed to insert guest registration log: ' . $e->getMessage());
+                    }
                     
                     return $this->db->insertID(); // Return the new user ID
                 }

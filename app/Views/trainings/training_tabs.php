@@ -56,7 +56,7 @@
                     <ul class="nav nav-tabs" id="trainingTabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab" aria-controls="approved" aria-selected="true">
-                                <i class="fas fa-graduation-cap me-2"></i>Training Programs Attended
+                                Training Programs Attended
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">

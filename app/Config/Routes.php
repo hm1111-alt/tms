@@ -10,7 +10,12 @@ $routes->setAutoRoute(false);
 
 // Public routes (no authentication required)
 $routes->get('/', 'Trainings\Trainings::public_landing');
-// Remove duplicate /trainings public route - let it use the authenticated one
+// Public training view route (no authentication required)
+$routes->get('trainings/view/(:num)', 'Trainings\Trainings::view/$1');
+
+// Register routes (requires authentication - will redirect to login if not logged in)
+$routes->get('trainings/register/(:num)', 'Trainings\Trainings::register/$1');
+$routes->get('trainings/cancel_registration/(:num)', 'Trainings\Trainings::cancel_registration/$1');
 
 // Login/Authentication routes
 $routes->get('/login', 'LoginController::index');
@@ -75,12 +80,32 @@ $routes->group('', ['filter' => 'AuthAdmin'], function($routes){
     $routes->post('trainings/update_pending', 'Trainings\Trainings::update_pending');
     $routes->get('trainings/debug_pending', 'Trainings\Trainings::debug_pending_trainings');
     $routes->post('trainings/delete/(:num)', 'Trainings\Trainings::delete/$1');
+    $routes->post('trainings/toggle_registration', 'Trainings\Trainings::toggle_registration');
+    $routes->get('trainings/check_status_updates', 'Trainings\Trainings::check_status_updates');
+    $routes->post('trainings/start_training', 'Trainings\Trainings::start_training');
+    $routes->post('trainings/start_session', 'Trainings\Trainings::start_session');
+    $routes->post('trainings/close_session', 'Trainings\Trainings::close_session');
+    $routes->post('trainings/save_multiple_sessions', 'Trainings\Trainings::save_multiple_sessions');
+    $routes->get('trainings/sessions/(:num)', 'Trainings\Trainings::manage_sessions/$1');
+    $routes->post('trainings/save_single_session', 'Trainings\Trainings::save_single_session');
+    $routes->post('trainings/update_session', 'Trainings\Trainings::update_session');
+    $routes->post('trainings/delete_session', 'Trainings\Trainings::delete_session');
+    $routes->post('trainings/get_session_attendance', 'Trainings\Trainings::get_session_attendance');
+    $routes->get('trainings/session_attendees/(:num)/(:num)', 'Trainings\Trainings::session_attendees/$1/$2');
+    $routes->post('trainings/start_specific_session', 'Trainings\Trainings::start_specific_session');
+    $routes->post('trainings/end_specific_session', 'Trainings\Trainings::end_specific_session');
+    $routes->post('trainings/verify_attendance', 'Trainings\Trainings::verify_attendance');
+    $routes->post('trainings/complete_training', 'Trainings\Trainings::complete_training');
+    $routes->get('trainings/certificate/(:num)', 'Trainings\Trainings::generate_certificate/$1');
+    $routes->post('trainings/get_employee_sessions', 'Trainings\Trainings::get_employee_sessions');
+    $routes->post('trainings/submit_employee_attendance', 'Trainings\Trainings::submit_employee_attendance');
+    $routes->post('trainings/submit_attendance', 'Trainings\Trainings::submit_employee_attendance');
     $routes->get('trainings/tabs', 'Trainings\Trainings::index');
     $routes->get('uploads/trainings/certificates/(:any)', 'Trainings\Trainings::serve_certificate/$1');
+    
+    // Feedback routes
+    $routes->get('feedback/submit/(:num)', 'Feedback\Feedback::submit/$1');
+    $routes->post('feedback/process', 'Feedback\Feedback::process');
 });
 
-// Public training view route (no authentication required)
-$routes->get('trainings/view/(:num)', 'Trainings\Trainings::view/$1');
 
-// Enrollment route (requires authentication - will redirect to login if not logged in)
-$routes->get('trainings/enroll/(:num)', 'Trainings\Trainings::enroll/$1');

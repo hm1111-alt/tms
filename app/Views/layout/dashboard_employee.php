@@ -9,7 +9,7 @@
         <meta name="description" content="" />
         <meta name="author" content="" />
         <link rel="shortcut icon" href="<?php echo base_url('public/favicon.ico'); ?>">
-        <title><?= stripos($user_type ?? '', 'guest') !== false ? 'Guest Portal' : 'Employee Portal' ?> - Dashboard</title>
+        <title>Training Management System - Dashboard</title>
         
         <!-- jQuery -->
         <script src="<?= js('jquery-3.6.0.min.js'); ?>"></script>
@@ -17,6 +17,10 @@
         <link href="<?= assets('simple-datatables/style.min.css') ?>" rel="stylesheet" />
         <link href="<?= css('styles.css') ?>" rel="stylesheet" />
         <script src="<?= assets('fontawesome/all.js') ?>" crossorigin="anonymous"></script>
+        
+        <!-- SweetAlert2 -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         
         <style>
             .training-card {
@@ -68,19 +72,31 @@
                 font-size: 2.5rem;
                 font-weight: 700;
             }
+            
+            /* Add top padding to prevent navbar overlap */
+            .sb-nav-fixed #layoutSidenav_content {
+                padding-top: 56px;
+            }
+            
+            main {
+                min-height: calc(100vh - 56px);
+            }
+            
+            .container-fluid.px-4 {
+                padding-top: 0px !important;
+                padding-bottom: 60px !important;
+            }
         </style>
         
 </head>
 
-<body class="sb-nav-fixed">
+<body>
         
         <?= $this->include('layout/navbar_employee') ?>
         
-        <div id="layoutSidenav">
-                <?= $this->include('layout/sidebar') ?>
-                <div id="layoutSidenav_content">
-                        <main>
-                        <div class="container-fluid px-4">
+        <div id="layoutSidenav_content">
+                <main>
+                        <div class="container-fluid px-4" style="padding-top: 0px; padding-bottom: 60px;">
                                 <!-- Header Section -->
                                 <div class="row" style="background-color: #FFF; border-radius: 0.375rem; margin:1rem 0 1rem 0;">
                                     <div class="col-xl-8">
@@ -89,7 +105,7 @@
                                         </h1>
                                         <ol class="breadcrumb mb-3">
                                             <li class="breadcrumb-item">
-                                                <a href="<?= site_url('dashboard') ?>" style="text-decoration: none;"><?= $portal_name ?? (stripos(session()->get('user_type_name'), 'guest') !== false ? 'Guest Portal' : 'Employee Portal') ?></a>
+                                                <a href="<?= site_url('dashboard') ?>" style="text-decoration: none;">Training Management System</a>
                                             </li>
                                             <li class="breadcrumb-item active" aria-current="page">
                                                 <?= $page_title ?? 'My Trainings' ?>
@@ -115,14 +131,6 @@
                                     <div class="card-body">
                                         <p class="mb-0 text-muted">
                                             Welcome, <?= session()->get('first_name'); ?>! 
-                                            <?php 
-                                            $user_type = session()->get('user_type_name');
-                                            if (stripos($user_type, 'guest') !== false) {
-                                                echo '(Logged in as: Guest)';
-                                            } else {
-                                                echo '(Logged in as: Employee)';
-                                            }
-                                            ?>
                                             Track your training progress and explore new learning opportunities.
                                         </p>
                                     </div>
@@ -134,7 +142,7 @@
 <!-- Employee Statistics Cards -->
 <?php if (!isset($hide_quick_actions) || !$hide_quick_actions): ?>
                                 <div class="row mb-4">
-                                    <div class="col-xl-3 col-md-6 mb-3">
+                                    <div class="col-xl-4 col-md-6 mb-3">
                                         <div class="training-card card h-100 shadow-sm border-0" style="border-left: 4px solid #198754;">
                                             <div class="card-header-custom" style="background: #f8f9fc; border-bottom: 2px solid #198754; min-height: 80px;">
                                                 <h5 class="training-title mb-0" style="font-size: 1rem; color: #198754;">
@@ -147,20 +155,7 @@
                                         </div>
                                     </div>
                                     
-                                    <div class="col-xl-3 col-md-6 mb-3">
-                                        <div class="training-card card h-100 shadow-sm border-0" style="border-left: 4px solid #ffc107;">
-                                            <div class="card-header-custom" style="background: #f8f9fc; border-bottom: 2px solid #ffc107; min-height: 80px;">
-                                                <h5 class="training-title mb-0" style="font-size: 1rem; color: #664d03;">
-                                                    <i class="fas fa-hourglass-half me-2"></i>Pending Requests
-                                                </h5>
-                                            </div>
-                                            <div class="card-body p-3 d-flex align-items-center justify-content-center">
-                                                <h2 class="mb-0 fw-bold display-4" style="color: #664d03;"><?= isset($pending_trainings_count) ? number_format($pending_trainings_count) : '0' ?></h2>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-xl-3 col-md-6 mb-3">
+                                    <div class="col-xl-4 col-md-6 mb-3">
                                         <div class="training-card card h-100 shadow-sm border-0" style="border-left: 4px solid #0dcaf0;">
                                             <div class="card-header-custom" style="background: #f8f9fc; border-bottom: 2px solid #0dcaf0; min-height: 80px;">
                                                 <h5 class="training-title mb-0" style="font-size: 1rem; color: #0dcaf0;">
@@ -173,7 +168,7 @@
                                         </div>
                                     </div>
                                     
-                                    <div class="col-xl-3 col-md-6 mb-3">
+                                    <div class="col-xl-4 col-md-6 mb-3">
                                         <div class="training-card card h-100 shadow-sm border-0" style="border-left: 4px solid #0d6efd;">
                                             <div class="card-header-custom" style="background: #f8f9fc; border-bottom: 2px solid #0d6efd; min-height: 80px;">
                                                 <h5 class="training-title mb-0" style="font-size: 1rem; color: #0d6efd;">
@@ -217,60 +212,12 @@
                                 </div>
 <?php endif; ?>
 
-                                <!-- Available Trainings Preview -->
-                                <?php if (!isset($hide_quick_actions) || !$hide_quick_actions): ?>
-                                <div class="row">
-                                    <div class="col-12">
-                                        <div class="card shadow-sm mb-4">
-                                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                                                <h5 class="mb-0"><i class="fas fa-graduation-cap me-2"></i>Available Trainings</h5>
-                                                <a href="<?= site_url('trainings') ?>" class="btn btn-sm btn-outline-primary">View All</a>
-                                            </div>
-                                            <div class="card-body">
-                                                <?php if(!empty($recent_trainings)): ?>
-                                                    <div class="table-responsive">
-                                                        <table class="table table-hover">
-                                                            <thead>
-                                                                <tr>
-                                                                    <th>Training Name</th>
-                                                                    <th>Date From</th>
-                                                                    <th>Date To</th>
-                                                                    <th>Venue</th>
-                                                                    <th>Action</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                <?php foreach(array_slice($recent_trainings, 0, 5) as $training): ?>
-                                                                    <tr>
-                                                                        <td><?= esc($training['training_name']) ?></td>
-                                                                        <td><?= date('M d, Y', strtotime($training['training_datefrom'])) ?></td>
-                                                                        <td><?= date('M d, Y', strtotime($training['training_dateto'])) ?></td>
-                                                                        <td><?= esc($training['venue'] ?? 'N/A') ?></td>
-                                                                        <td>
-                                                                            <a href="<?= site_url('trainings/view/' . $training['id_training']) ?>" class="btn btn-sm btn-outline-primary">
-                                                                                <i class="fas fa-eye"></i> View
-                                                                            </a>
-                                                                        </td>
-                                                                    </tr>
-                                                                <?php endforeach; ?>
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                <?php else: ?>
-                                                    <p class="text-muted text-center">No trainings available at the moment.</p>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-
                         </div>
-                        </main>
+                </main>
 
-                        <?= $this->renderSection('content') ?>
+                <?= $this->renderSection('content') ?>
 
-                        <footer class="py-4 bg-light mt-auto">
+                <footer class="py-4 bg-light mt-auto">
                                 <div class="container-fluid px-4">
                                     <div class="align-items-center justify-content-between small">
                                         <div class="text-muted" style="text-align: right;">&copy; <?= date('Y') ?> CLSU. All rights reserved. 
@@ -279,7 +226,6 @@
                                     </div>
                                 </div>
                         </footer>
-                </div>
         </div>
         
     </body>

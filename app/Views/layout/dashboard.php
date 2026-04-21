@@ -85,6 +85,11 @@
                 font-weight: normal;
             }
             
+            /* Add padding for fixed navbar */
+            .sb-nav-fixed #layoutSidenav_content {
+                padding-top: 56px;
+            }
+            
             /* Training Card Styles - Copied from Trainings Page */
             .training-card {
                 border: none;
@@ -203,7 +208,7 @@
                                         <div class="training-card card h-100 shadow-sm border-0" style="border-left: 4px solid #0d6efd;">
                                             <div class="card-header-custom" style="background: #f8f9fc; border-bottom: 2px solid #0d6efd; min-height: 80px;">
                                                 <h5 class="training-title mb-0" style="font-size: 1rem; color: #0d6efd;">
-                                                    <i class="fas fa-graduation-cap me-2"></i>Total Trainings
+                                                    Total Trainings
                                                 </h5>
                                             </div>
                                             <div class="card-body p-3 d-flex align-items-center justify-content-center">
@@ -271,15 +276,6 @@
                                                         <a href="<?= site_url('trainings/add') ?>" class="btn btn-outline-success w-100 py-3">
                                                             <i class="fas fa-plus-circle fa-2x mb-2"></i>
                                                             <div>Add New Training</div>
-                                                        </a>
-                                                    </div>
-                                                    <div class="col-md-4">
-                                                        <a href="<?= site_url('trainings/pending') ?>" class="btn btn-outline-warning w-100 py-3">
-                                                            <i class="fas fa-hourglass-half fa-2x mb-2"></i>
-                                                            <div>Pending Requests</div>
-                                                            <?php if($pending_trainings > 0): ?>
-                                                                <span class="badge bg-warning text-dark ms-1"><?= $pending_trainings ?></span>
-                                                            <?php endif; ?>
                                                         </a>
                                                     </div>
                                                     <div class="col-md-4">

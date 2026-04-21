@@ -8,7 +8,7 @@
                 
                 <div class="container-fluid px-3">
                     
-                    <div class="row" style="background-color: #FFF; border-radius: 0.375rem; margin:1rem 0 1rem 0;">
+                    <div class="row" style="background-color: #FFF; border-radius: 0.375rem; margin: 4rem 0 1rem 0; padding-top: 2rem;">
                         <div class="col-xl-8">
                             <h1 class="<?php echo @$page->page_parent==0 ? 'mt-4 mb-3' : 'mt-2'; ?>">
                                 <?php echo @$page->page_name2; //@$page->page_parent==0 ? @$page->page_name2 : @$page->parent_page_name2;

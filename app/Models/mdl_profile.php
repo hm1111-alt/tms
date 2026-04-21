@@ -30,7 +30,12 @@ class Mdl_Profile extends Model
         }
         
         function get_employee_basic($employee_id)
-        {            
+        {
+                // Return empty array if no employee_id provided
+                if(empty($employee_id)) {
+                    return [];
+                }
+                
                 $query = $this->db->query("SELECT employees.*,emp_sex,
                                                     office_ismain,office_name,office_abbr,
                                                     division_name,division_abbr,
@@ -40,19 +45,27 @@ class Mdl_Profile extends Model
                                                 LEFT JOIN lib_offices ON id_office=emp_office
                                                 LEFT JOIN lib_divisions ON id_division=emp_division
                                                 LEFT JOIN lib_units ON id_unit=emp_unit
-                                                WHERE id_employee=".$employee_id);
+                                                WHERE id_employee=" . $this->db->escape($employee_id));
                 $result = $query->getResult();
                 
                 foreach($result as $row){
                     
-                    $query2 = $this->db_hrmis->query("SELECT emp_mname,emp_cpno,emp_date_hired
-                                                    FROM employees
-                                                    WHERE id_employee=".$row->id_employee);
-                    $emp_mname = @$query2->getRow()->emp_mname;
-                    $row->emp_mname = $emp_mname;
-                    $emp_cpno = @$query2->getRow()->emp_cpno;
-                    $row->emp_cpno = $emp_cpno;
-                    $row->emp_date_hired = @$query2->getRow()->emp_date_hired;
+                    // Try to get additional data from hrmis database
+                    try {
+                        $query2 = $this->db_hrmis->query("SELECT emp_mname,emp_cpno,emp_date_hired
+                                                        FROM employees
+                                                        WHERE id_employee=" . $this->db->escape($row->id_employee));
+                        $emp_mname = @$query2->getRow()->emp_mname;
+                        $row->emp_mname = $emp_mname;
+                        $emp_cpno = @$query2->getRow()->emp_cpno;
+                        $row->emp_cpno = $emp_cpno;
+                        $row->emp_date_hired = @$query2->getRow()->emp_date_hired;
+                    } catch(\Exception $e) {
+                        // HRMIS not available, set null values
+                        $row->emp_mname = null;
+                        $row->emp_cpno = null;
+                        $row->emp_date_hired = null;
+                    }
                 }
                 
                 return $result;
@@ -132,9 +145,15 @@ class Mdl_Profile extends Model
                         'emp_cpno' => $this->request->getPost('emp_cpno'),
                     );
                 
-                    $res_hrmis = $this->db_hrmis->table('employees')
-                            ->where('id_employee', $employee_id)
-                            ->update($data2);
+                    // Try to update hrmis database if available
+                    try {
+                        $res_hrmis = $this->db_hrmis->table('employees')
+                                ->where('id_employee', $employee_id)
+                                ->update($data2);
+                    } catch(\Exception $e) {
+                        log_message('warning', 'HRMIS database not available: ' . $e->getMessage());
+                        $res_hrmis = true; // Consider it successful to continue
+                    }
                     
                     if($res_hrmis){
                         $his_data = array(
@@ -147,7 +166,18 @@ class Mdl_Profile extends Model
                             'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
                             'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
                         );
-                        $this->db_hrmis->table('history')->insert($his_data);
+                        // Log to logs table in hr_lnd_db
+                        try {
+                            $this->db->table('logs')->insert([
+                                'logs_date' => date('Y-m-d H:i:s'),
+                                'logs_user' => session()->get('userid'),
+                                'logs_action' => 'PROFILE UPDATE - ' . $action . ' (thru e-portal)',
+                                'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+                                'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                            ]);
+                        } catch(\Exception $e) {
+                            log_message('warning', 'Could not log profile update: ' . $e->getMessage());
+                        }
                     }
                     
                     if($this->request->getFile('file_upload')!=''){
@@ -161,16 +191,18 @@ class Mdl_Profile extends Model
                             ->where('userid', session()->get('userid'))
                             ->update(array('first_login'=>0));
                     
-                    $his_data = array(
-                        'history_date'=>date('Y-m-d H:i:s'),
-                        'history_name'=>$employee_id,
-                        'history_category'=>'PROFILE',
-                        'history_action'=>$action,
-                        'history_user'=>session()->get('userid'),
-                        'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
-                        'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
-                    );
-                    $this->db->table('history')->insert($his_data);
+                    // Log to logs table instead of history
+                    try {
+                        $this->db->table('logs')->insert([
+                            'logs_date' => date('Y-m-d H:i:s'),
+                            'logs_user' => session()->get('userid'),
+                            'logs_action' => 'PROFILE UPDATE - ' . $action,
+                            'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+                            'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                        ]);
+                    } catch(\Exception $e) {
+                        log_message('error', 'Failed to insert profile update log: ' . $e->getMessage());
+                    }
                 }
                 
                 return $res;
@@ -208,7 +240,14 @@ class Mdl_Profile extends Model
                     'esign_file_added' => date('Y-m-d H:i:s'),
                     'esign_file_addedby' => session()->get('userid'),
                 );
-                $esign_res = $this->db_hrmis->table('employees_esign')->insert($data_file);
+                
+                // Try to save to hrmis database if available
+                try {
+                    $esign_res = $this->db_hrmis->table('employees_esign')->insert($data_file);
+                } catch(\Exception $e) {
+                    log_message('warning', 'HRMIS database not available for e-signature: ' . $e->getMessage());
+                    $esign_res = true; // Consider it successful to continue
+                }
                     
                 if($esign_res){
                     session()->set('esign_file', $newname);
@@ -235,17 +274,18 @@ class Mdl_Profile extends Model
                 if($res){
                     
                     $user = $this->get_employee_basic(session()->get('empid'));
-                    $his_data = array(
-                        'history_date'=>date('Y-m-d H:i:s'),
-                        'history_name'=>$userid,
-                        'history_category'=>'ACCOUNT',
-                        'history_action'=> 'Update Password',
-                        'history_remarks'=> @$user[0]->emp_fname.' '.@$user[0]->emp_lname.' '.@$user[0]->emp_extname,
-                        'history_user'=> null,
-                        'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
-                        'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
-                    );
-                    $this->db->table('history')->insert($his_data);
+                    // Log to logs table instead of history
+                    try {
+                        $this->db->table('logs')->insert([
+                            'logs_date' => date('Y-m-d H:i:s'),
+                            'logs_user' => $userid,
+                            'logs_action' => 'Update Password',
+                            'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+                            'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                        ]);
+                    } catch(\Exception $e) {
+                        log_message('error', 'Failed to insert password update log: ' . $e->getMessage());
+                    }
                 }
                 
                 return $res;
@@ -340,9 +380,14 @@ class Mdl_Profile extends Model
                                 ->where('id_employee', session()->get('empid'))
                                 ->update($picture_data);
 								
-                        $this->db_hrmis->table('employees')
-                                ->where('id_employee', session()->get('empid'))
-                                ->update($picture_data);
+                        // Try to update hrmis database if available
+                        try {
+                            $this->db_hrmis->table('employees')
+                                    ->where('id_employee', session()->get('empid'))
+                                    ->update($picture_data);
+                        } catch(\Exception $e) {
+                            log_message('warning', 'HRMIS database not available for profile picture: ' . $e->getMessage());
+                        }
 
                             session()->remove('profile_picture');
                             session()->set('profile_picture', $newname);
@@ -352,16 +397,18 @@ class Mdl_Profile extends Model
                             session()->set('profile_loc', 'portal');
 							
 							
-						$his_data = array(
-							'history_date'=>date('Y-m-d H:i:s'),
-							'history_name'=>session()->get('empid'),
-							'history_category'=>'EMPLOYEES',
-							'history_action'=>'Update Profile Picture',
-							'history_user'=>session()->get('userid'),
-							'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
-							'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
-						);
-						$this->db->table('history')->insert($his_data);
+						// Log to logs table instead of history
+						try {
+							$this->db->table('logs')->insert([
+								'logs_date' => date('Y-m-d H:i:s'),
+								'logs_user' => session()->get('userid'),
+								'logs_action' => 'Update Profile Picture',
+								'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+								'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+							]);
+						} catch(\Exception $e) {
+							log_message('error', 'Failed to insert profile picture update log: ' . $e->getMessage());
+						}
                 }
 
 
@@ -434,16 +481,18 @@ class Mdl_Profile extends Model
                     
                     $this->session = \Config\Services::session();
                     
-                    $his_data = array(
-                        'history_date'=>date('Y-m-d H:i:s'),
-                        'history_name'=>$employee_id,
-                        'history_category'=>'EMPLOYEES',
-                        'history_action'=>$action,
-                        'history_user'=>session()->get('userid'),
-                        'history_ip_address'=>$_SERVER['REMOTE_ADDR'],
-                        'history_comp'=>gethostbyaddr($_SERVER['REMOTE_ADDR']),
-                    );
-                    $this->db->table('history')->insert($his_data);
+                    // Log to logs table instead of history
+                    try {
+                        $this->db->table('logs')->insert([
+                            'logs_date' => date('Y-m-d H:i:s'),
+                            'logs_user' => session()->get('userid'),
+                            'logs_action' => 'EMPLOYEES - ' . $action,
+                            'logs_ip_address' => $_SERVER['REMOTE_ADDR'],
+                            'logs_comp' => gethostbyaddr($_SERVER['REMOTE_ADDR'])
+                        ]);
+                    } catch(\Exception $e) {
+                        log_message('error', 'Failed to insert employee log: ' . $e->getMessage());
+                    }
                 }
                 
                 return $res;

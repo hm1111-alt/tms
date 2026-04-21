@@ -15,7 +15,6 @@ class Dashboard extends BaseController
 
         public function index()
         {
-                // Get user type to determine which dashboard to show
                 $user_type = session()->get('user_type_name');
                 $employee_id = session()->get('empid');
                 $emp_idno = session()->get('emp_idno');
@@ -28,11 +27,8 @@ class Dashboard extends BaseController
                 log_message('info', 'User ID: ' . ($userid ?? 'NULL'));
                 log_message('info', 'ALL SESSION DATA: ' . json_encode(session()->get()));
                 
-                // Initialize common data
                 $this->mdl_menu = new \App\Models\mdl_menu();
                 $data['user_type'] = $user_type;
-                
-                // Get employee basic info (for employees only, guests won't have this)
                 $data['basic'] = null;
                 $data['lib_offices'] = [];
                 $data['divisions'] = [];
@@ -58,7 +54,6 @@ class Dashboard extends BaseController
                     }
                 }
                 
-                // Load training statistics based on user type
                 $data = $this->load_training_statistics($data, $employee_id, $emp_idno, $user_type);
                 
                 $data['page'] = $this->mdl_setting->get_page_details($this->class_name);
@@ -68,12 +63,10 @@ class Dashboard extends BaseController
                 
                 log_message('info', 'Loading dashboard for user type: ' . $user_type);
                 
-                // Return different views based on user type (case-insensitive, check if contains keyword)
                 if (stripos($user_type, 'admin') !== false) {
                     log_message('info', 'Redirecting to admin dashboard');
                     return view('layout/dashboard_admin', $data);
                 } elseif (stripos($user_type, 'employee') !== false || stripos($user_type, 'staff') !== false || stripos($user_type, 'guest') !== false) {
-                    // Employee and Guest use the same dashboard view - only navbar/sidebar differs
                     log_message('info', 'Redirecting to employee/guest dashboard');
                     return view('layout/dashboard_employee', $data);
                 } else {
@@ -82,12 +75,8 @@ class Dashboard extends BaseController
                 }
         }
         
-        /**
-         * Load training statistics based on user type
-         */
         private function load_training_statistics($data, $employee_id, $emp_idno, $user_type)
         {
-            // Initialize statistics
             $data['total_trainings'] = 0;
             $data['trainings_this_month'] = 0;
             $data['upcoming_trainings'] = 0;
@@ -97,54 +86,126 @@ class Dashboard extends BaseController
             $data['recent_trainings'] = [];
             $data['my_trainings_count'] = 0;
             
-            if(!empty($employee_id)) {
-                $db = \Config\Database::connect();
-                try {
-                    if (stripos($user_type, 'admin') !== false) {
-                        // Admin sees ALL trainings statistics
-                        $data['total_trainings'] = (int) $db->table('lib_trainings lt')
-                            ->join('training_status ts', 'ts.id = lt.status_id')
-                            ->where('ts.status IS NOT NULL', null, null, false)
-                            ->where('ts.status != ""', null, null, false)
-                            ->countAllResults();
+            log_message('info', '=== LOAD TRAINING STATS DEBUG ===');
+            log_message('info', 'User Type: ' . ($user_type ?? 'NULL'));
+            log_message('info', 'Employee ID: ' . ($employee_id ?? 'NULL'));
+            log_message('info', 'Emp ID No: ' . ($emp_idno ?? 'NULL'));
+            log_message('info', 'Session userid: ' . (session()->get('userid') ?? 'NULL'));
+            
+            $db = \Config\Database::connect();
+            try {
+                if (stripos($user_type, 'admin') !== false) {
+                        $all_trainings = $db->table('lib_trainings lt')
+                            ->select('lt.*, ltc.training_category_name, ts.status_name')
+                            ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
+                            ->join('other_training_info oti', 'oti.training_id = lt.id_training', 'inner')
+                            ->join('training_status ts', 'ts.id = oti.status_id')
+                            ->where('ts.status_name IS NOT NULL', null, null, false)
+                            ->where('ts.status_name != ""', null, null, false)
+                            ->groupBy('lt.id_training')
+                            ->get()
+                            ->getResultArray();
                         
+                        $data['total_trainings'] = count($all_trainings);
+                        log_message('info', 'DEBUG - Total trainings (array count): ' . $data['total_trainings']);
+                                        
                         $data['pending_trainings'] = (int) $db->table('pending_trainings')
+                            ->groupStart()
+                                ->where('is_approved IS NULL', null, null, false)
+                                ->orWhere('is_approved', 0)
+                            ->groupEnd()
+                            ->where('is_disapproved !=', 1)
                             ->countAllResults();
-                            
+                                        
+                        $current_month = date('m');
+                        $current_year = date('Y');
+                        $trainings_this_month = $db->table('lib_trainings lt')
+                            ->join('other_training_info oti', 'oti.training_id = lt.id_training', 'inner')
+                            ->join('training_status ts', 'ts.id = oti.status_id')
+                            ->where('YEAR(lt.training_added_date)', $current_year)
+                            ->where('MONTH(lt.training_added_date)', $current_month)
+                            ->where('ts.status_name IS NOT NULL', null, null, false)
+                            ->where('ts.status_name != ""', null, null, false)
+                            ->groupBy('lt.id_training')
+                            ->get()
+                            ->getResultArray();
+                        $data['trainings_this_month'] = count($trainings_this_month);
+                                        
+                        // Upcoming trainings (all upcoming)
+                        $today = date('Y-m-d');
+                        $upcoming_trainings = $db->table('lib_trainings lt')
+                            ->join('other_training_info oti', 'oti.training_id = lt.id_training', 'inner')
+                            ->join('training_status ts', 'ts.id = oti.status_id')
+                            ->where('lt.training_datefrom >', $today)
+                            ->where('ts.status_name IS NOT NULL', null, null, false)
+                            ->where('ts.status_name != ""', null, null, false)
+                            ->groupBy('lt.id_training')
+                            ->get()
+                            ->getResultArray();
+                        $data['upcoming_trainings'] = count($upcoming_trainings);
+                                        
+                        // Recent trainings (for admin table)
+                        $data['recent_trainings'] = $db->table('lib_trainings lt')
+                            ->select('lt.*, ltc.training_category_name, ts.status_name')
+                            ->join('other_training_info oti', 'oti.training_id = lt.id_training', 'inner')
+                            ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
+                            ->join('training_status ts', 'ts.id = oti.status_id')
+                            ->where('ts.status_name IS NOT NULL', null, null, false)
+                            ->where('ts.status_name != ""', null, null, false)
+                            ->groupBy('lt.id_training')
+                            ->orderBy('lt.training_added_date', 'DESC')
+                            ->limit(5)
+                            ->get()
+                            ->getResultArray();
+                                            
                     } elseif (stripos($user_type, 'employee') !== false || stripos($user_type, 'staff') !== false || stripos($user_type, 'guest') !== false) {
                         // Employee and Guest see their own statistics
+                        // Use userid from session (works for both employees and guests)
+                        $userid = session()->get('userid') ?? $emp_idno;
+                        
+                        log_message('info', 'Using userid for training count: ' . ($userid ?? 'NULL'));
+                        
                         $data['my_trainings_count'] = (int) $db->table('training_attendees')
                             ->where('user_id', $userid)
                             ->countAllResults();
                         
-                        $data['pending_trainings'] = (int) $db->table('pending_trainings')
-                            ->where('emp_idno', $userid)
+                        log_message('info', 'My trainings count: ' . $data['my_trainings_count']);
+                        
+                        $data['pending_trainings_count'] = (int) $db->table('pending_trainings')
+                            ->where('emp_idno', $emp_idno)
                             ->where('is_approved', 0)
                             ->countAllResults();
+                        $data['pending_trainings'] = $data['pending_trainings_count'];
                         
                         // Total available trainings (for display purposes)
                         $data['total_trainings'] = (int) $db->table('lib_trainings lt')
-                            ->join('training_status ts', 'ts.id = lt.status_id')
-                            ->where('ts.status IS NOT NULL', null, null, false)
-                            ->where('ts.status != ""', null, null, false)
+                            ->select('lt.id_training', false)
+                            ->join('other_training_info oti', 'oti.training_id = lt.id_training', 'inner')
+                            ->join('training_status ts', 'ts.id = oti.status_id')
+                            ->where('ts.status_name IS NOT NULL', null, null, false)
+                            ->where('ts.status_name != ""', null, null, false)
+                            ->groupBy('lt.id_training')
                             ->countAllResults();
                         
                         // Trainings this month
                         $current_month = date('m');
                         $current_year = date('Y');
                         $data['trainings_this_month'] = (int) $db->table('lib_trainings lt')
-                            ->join('training_status ts', 'ts.id = lt.status_id')
+                            ->select('lt.id_training', false)
+                            ->join('other_training_info oti', 'oti.training_id = lt.id_training', 'inner')
+                            ->join('training_status ts', 'ts.id = oti.status_id')
                             ->where('YEAR(lt.training_added_date)', $current_year)
                             ->where('MONTH(lt.training_added_date)', $current_month)
-                            ->where('ts.status IS NOT NULL', null, null, false)
-                            ->where('ts.status != ""', null, null, false)
+                            ->where('ts.status_name IS NOT NULL', null, null, false)
+                            ->where('ts.status_name != ""', null, null, false)
+                            ->groupBy('lt.id_training')
                             ->countAllResults();
                         
                         // Upcoming trainings
                         $today = date('Y-m-d');
                         $data['upcoming_trainings'] = (int) $db->table('training_attendees ta')
                             ->join('lib_trainings lt', 'lt.id_training = ta.training_id')
-                            ->where('ta.user_id', $emp_idno)
+                            ->where('ta.user_id', $userid)
                             ->where('lt.training_datefrom >', $today)
                             ->countAllResults();
                         
@@ -152,7 +213,7 @@ class Dashboard extends BaseController
                         $today = date('Y-m-d');
                         $data['completed_trainings'] = (int) $db->table('training_attendees ta')
                             ->join('lib_trainings lt', 'lt.id_training = ta.training_id')
-                            ->where('ta.user_id', $emp_idno)
+                            ->where('ta.user_id', $userid)
                             ->where('lt.training_dateto <', $today)
                             ->countAllResults();
                         
@@ -160,9 +221,10 @@ class Dashboard extends BaseController
                         $data['category_summary'] = $db->table('lib_trainings lt')
                             ->select('ltc.training_category_name, COUNT(lt.id_training) as count')
                             ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
-                            ->join('training_status ts', 'ts.id = lt.status_id')
-                            ->where('ts.status IS NOT NULL', null, null, false)
-                            ->where('ts.status != ""', null, null, false)
+                            ->join('other_training_info oti', 'oti.training_id = lt.id_training', 'inner')
+                            ->join('training_status ts', 'ts.id = oti.status_id')
+                            ->where('ts.status_name IS NOT NULL', null, null, false)
+                            ->where('ts.status_name != ""', null, null, false)
                             ->groupBy('ltc.training_category_name')
                             ->orderBy('count', 'DESC')
                             ->get()
@@ -170,11 +232,12 @@ class Dashboard extends BaseController
                         
                         // Recent trainings (available for all)
                         $data['recent_trainings'] = $db->table('lib_trainings lt')
-                            ->select('lt.*, ltc.training_category_name, ts.status as status_name')
+                            ->select('lt.*, ltc.training_category_name, ts.status_name')
                             ->join('lib_training_category ltc', 'ltc.id_training_category = lt.training_category_id', 'left')
-                            ->join('training_status ts', 'ts.id = lt.status_id')
-                            ->where('ts.status IS NOT NULL', null, null, false)
-                            ->where('ts.status != ""', null, null, false)
+                            ->join('other_training_info oti', 'oti.training_id = lt.id_training', 'inner')
+                            ->join('training_status ts', 'ts.id = oti.status_id', 'inner')
+                            ->where('ts.status_name IS NOT NULL', null, null, false)
+                            ->where('ts.status_name != ""', null, null, false)
                             ->orderBy('lt.training_added_date', 'DESC')
                             ->limit(5)
                             ->get()
@@ -186,32 +249,21 @@ class Dashboard extends BaseController
                     log_message('error', 'Error loading training statistics: ' . $e->getMessage());
                     log_message('error', 'Exception trace: ' . $e->getTraceAsString());
                 }
-            } else {
-                log_message('warning', 'No employee ID - using default statistics');
-            }
-            
-            return $data;
+                
+                return $data;
         }
         
         function load_memo()
         {
-                $details = $this->mdl_dashboard->get_memo_details($_POST['memo_id']);
-//                $details = $this->mdl_dashboard->get_memo_details();
-                				
+                $details = $this->mdl_dashboard->get_memo_details($_POST['memo_id']); 				
                 $filedir = $_SERVER['REMOTE_ADDR']=='::1' ? 'http://localhost/hrmisv2/public/assets/files/memos/'.$details->memo_file_name : 'https://hrmis2.clsu.edu.ph/public/assets/files/memos/'.$details->memo_file_name; 
                 echo $filedir;
         }
         
         function load_my_credits()
         {
-                // This function is deprecated - was used for leave credits
-                // Now used for training statistics if needed
                 echo json_encode([]);
         }
-        
-//----divider----------------------------------------------------------
-//----divider----------------------------------------------------------
-//----divider----------------------------------------------------------
         
         private function _validate_first_update()
         {
@@ -270,19 +322,10 @@ class Dashboard extends BaseController
                 $data['units'] = $this->mdl_menu->get_units_menu();
                 $data['divisions'] = $this->mdl_menu->get_divisions_menu();
                 $data['offices'] = $this->mdl_menu->get_offices_menu();
-                
-//                $data['positions'] = $this->mdl_menu->get_positions_menu(1);
-                
-//                $data['civil_status'] = $this->mdl_menu->get_civil_status_menu();
-                
-                        
-                
+                         
                 if($employee_id!=""){
                     $basic = $this->mdl_dashboard->get_employee_basic($employee_id);
                     $data['basic'] = $basic;
-                    
-//                    $personal = $this->mdl_dashboard->get_employee_personal($employee_id);
-//                    $data['personal'] = $personal;
                 }
                         
                 $empname = @$basic[0]->emp_fname.' '.@$basic[0]->emp_lname.' '.@$basic[0]->emp_extname;
