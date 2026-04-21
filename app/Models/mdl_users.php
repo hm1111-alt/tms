@@ -109,8 +109,8 @@ class Mdl_Users extends Model
     public function getAllUsers($filters = [])
     {
         try {
-            $query = $this->select('users.*, lib_user_types.user_type_name')
-                ->join('lib_user_types', 'lib_user_types.id_user_type = users.user_type_id', 'left');
+            $query = $this->select('users.*, user_types.user_type_name')
+                ->join('user_types', 'user_types.id = users.user_type_id', 'left');
             
             if (!empty($filters['is_active'])) {
                 $query->where('users.is_active', $filters['is_active']);
